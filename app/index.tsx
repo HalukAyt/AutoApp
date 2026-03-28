@@ -12,7 +12,7 @@ export default function Index() {
     >
       <Text style={{
         fontSize:50
-      }}>Naber Berat</Text>
+      }}>Naber Aykt</Text>
       <Text>AUTOAPP</Text>
     </View>
   );
