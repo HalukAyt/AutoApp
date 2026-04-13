@@ -2,14 +2,13 @@ import { useRouter } from "expo-router";
 import {
   Image,
   Pressable,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from "react-native";
-
+import { SafeAreaView } from "react-native-safe-area-context";
 const carImage = require("../assets/images/5.jpg");
 const eventImage = require("../assets/images/33.jpg");
 
@@ -91,7 +90,9 @@ export default function Home() {
         <View style={styles.reminderCard}>
           <Text style={styles.reminderTitle}>Hatırlatma</Text>
           <Text style={styles.reminderText}>• Bakıma 3 gün kaldı !</Text>
-          <Text style={styles.reminderText}>• Track Day etkinliğine 1 hafta kaldı.</Text>
+          <Text style={styles.reminderText}>
+            • Track Day etkinliğine 1 hafta kaldı.
+          </Text>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -101,7 +102,7 @@ export default function Home() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "#191a1c",
+    backgroundColor: "#000000",
   },
   scrollContent: {
     backgroundColor: "#191a1c",

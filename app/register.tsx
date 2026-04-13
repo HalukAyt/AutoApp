@@ -1,5 +1,8 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { router } from "expo-router";
 import { useState } from "react";
 import {
+  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -9,9 +12,41 @@ import {
   TextInput,
   View,
 } from "react-native";
+import api from "../api";
 
 export default function Register() {
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
+  const [name, setName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [email, setEmail] = useState("");
+  const [userName, setUserName] = useState("");
+  const [password, setPassword] = useState("");
+
+  interface RegisterData {
+    name: string;
+    lastName: string;
+    email: string;
+    userName: string;
+    password: string;
+  }
+
+  const handleRegister = async () => {
+    const response = await api().post("/auth/register", {
+      name: name,
+      lastName: lastName,
+      email: email,
+      userName: userName,
+      password: password,
+    } as RegisterData);
+    try {
+      await AsyncStorage.setItem("token", response.data.token);
+      Alert.alert("Kayıt başarılı! Giriş yapılıyor...");
+      router.push("/home");
+    } catch (error) {
+      Alert.alert("Kayıt sırasında bir hata oluştu. Lütfen tekrar deneyin.");
+      console.log("Kayıt hatası:", error);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -27,12 +62,16 @@ export default function Register() {
             placeholder="Ad"
             placeholderTextColor="#9a9a9a"
             style={styles.input}
+            value={name}
+            onChangeText={setName}
           />
 
           <TextInput
             placeholder="Soyad"
             placeholderTextColor="#9a9a9a"
             style={styles.input}
+            value={lastName}
+            onChangeText={setLastName}
           />
 
           <TextInput
@@ -41,6 +80,8 @@ export default function Register() {
             placeholder="Mail Adresi"
             placeholderTextColor="#9a9a9a"
             style={styles.input}
+            value={email}
+            onChangeText={setEmail}
           />
 
           <TextInput
@@ -49,6 +90,8 @@ export default function Register() {
             placeholder="Kullanıcı Adı"
             placeholderTextColor="#9a9a9a"
             style={styles.input}
+            value={userName}
+            onChangeText={setUserName}
           />
 
           <View style={styles.passwordField}>
@@ -59,6 +102,8 @@ export default function Register() {
               placeholderTextColor="#9a9a9a"
               secureTextEntry={!isPasswordVisible}
               style={styles.passwordInput}
+              value={password}
+              onChangeText={setPassword}
             />
             <Pressable
               accessibilityLabel={
@@ -67,11 +112,13 @@ export default function Register() {
               hitSlop={10}
               onPress={() => setIsPasswordVisible((value) => !value)}
             >
-              <Text style={styles.eyeText}>{isPasswordVisible ? "Gizle" : "Göster"}</Text>
+              <Text style={styles.eyeText}>
+                {isPasswordVisible ? "Gizle" : "Göster"}
+              </Text>
             </Pressable>
           </View>
 
-          <Pressable style={styles.registerButton}>
+          <Pressable onPress={handleRegister} style={styles.registerButton}>
             <Text style={styles.registerButtonText}>Kayıt Ol</Text>
           </Pressable>
 

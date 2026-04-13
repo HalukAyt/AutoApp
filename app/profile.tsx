@@ -1,4 +1,6 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
+import type { ImageSourcePropType } from "react-native";
 import {
   Image,
   Pressable,
@@ -8,7 +10,6 @@ import {
   Text,
   View,
 } from "react-native";
-import type { ImageSourcePropType } from "react-native";
 
 const coverImage = require("../assets/images/21.jpg");
 const avatarImage = require("../assets/images/3.jpg");
@@ -55,7 +56,7 @@ export default function Profile() {
             <View style={styles.followRow}>
               <Text style={styles.followNumber}>1</Text>
               <Text style={styles.followLabel}> Takipçi</Text>
-              <Text style={styles.followNumber}>   1</Text>
+              <Text style={styles.followNumber}> 1</Text>
               <Text style={styles.followLabel}> Takip Edilen</Text>
             </View>
           </View>
@@ -119,6 +120,14 @@ export default function Profile() {
             image={routeMapTwo}
           />
         </View>
+        <Pressable
+          style={styles.featureCard}
+          onPress={() =>
+            AsyncStorage.removeItem("token").then(() => router.push("/"))
+          }
+        >
+          <Text style={styles.featureTitle}>Çıkış Yap</Text>
+        </Pressable>
       </ScrollView>
     </SafeAreaView>
   );
@@ -356,5 +365,18 @@ const styles = StyleSheet.create({
   routeTextBox: {
     flex: 1,
     marginLeft: 12,
+  },
+  featureCard: {
+    backgroundColor: "#ff0000",
+    borderRadius: 8,
+    marginHorizontal: 150,
+    marginVertical: 12,
+    padding: 14,
+  },
+  featureTitle: {
+    color: "#f2f2f2",
+    fontSize: 14,
+    fontWeight: "800",
+    alignSelf: "center",
   },
 });
