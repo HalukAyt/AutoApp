@@ -1,7 +1,9 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
+import { useEffect, useState } from "react";
 import type { ImageSourcePropType } from "react-native";
 import {
+  Alert,
   Image,
   Pressable,
   SafeAreaView,
@@ -9,7 +11,9 @@ import {
   StyleSheet,
   Text,
   View,
+  ActivityIndicator
 } from "react-native";
+import api from "../api"; 
 
 const coverImage = require("../assets/images/21.jpg");
 const avatarImage = require("../assets/images/3.jpg");
@@ -19,8 +23,77 @@ const postImage = require("../assets/images/33.jpg");
 const routeMapOne = require("../assets/images/9.png");
 const routeMapTwo = require("../assets/images/10.png");
 
+interface Vehicle {
+  id: number;
+  brand: string;
+  model: string;
+  year: number;
+}
+
+interface Post {
+  id: number;
+  content: string;
+  likesCount: number;
+  commentsCount: number;
+  time: string;
+}
+
+interface UserProfile {
+  name: string;
+  username: string;
+  followerCount: number; 
+  followingCount: number;
+  garage: Vehicle[];
+  posts: Post[];
+}
+
 export default function Profile() {
   const router = useRouter();
+
+  // profil verilerini tutacağımız stateler
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchProfileData = async () => {
+      try {
+        const token = await AsyncStorage.getItem("token");
+        
+        // Token'ı başlığa (Header) ekleyerek GET isteği atıyoruz
+        const response = await api().get("/profile/me", {
+          headers: {
+            Authorization: `Bearer ${token}` // Spring Security bu bileti bekler
+          }
+        });
+        
+        setProfile(response.data); // Gelen veriyi state'e kaydet
+      } catch (error) {
+        console.log("Profil çekme hatası:", error);
+        Alert.alert("Hata", "Profil bilgileri alınamadı.");
+      } finally {
+        setLoading(false); // Yükleme bitti
+      }
+    };
+
+    fetchProfileData();
+  }, []);
+
+  if (loading) {
+    return (
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#17181a" }}>
+        <ActivityIndicator size="large" color="#a8732b" />
+      </View>
+    );
+  }
+
+  // Eğer profil boş geldiyse (hata olduysa)
+  if (!profile) {
+    return (
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#17181a" }}>
+        <Text style={{ color: "white" }}>Veri bulunamadı.</Text>
+      </View>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -42,7 +115,8 @@ export default function Profile() {
 
           <View style={styles.identity}>
             <View style={styles.nameRow}>
-              <Text style={styles.name}>John Doe</Text>
+              {/* DİNAMİK VERİ: İSİM */}
+              <Text style={styles.name}>{profile.name}</Text>
               <Pressable
                 style={styles.editButton}
                 onPress={() => router.push("/edit-profile")}
@@ -51,12 +125,14 @@ export default function Profile() {
               </Pressable>
             </View>
 
-            <Text style={styles.username}>@johndoe</Text>
+            {/* DİNAMİK VERİ: KULLANICI ADI */}
+            <Text style={styles.username}>{profile.username}</Text>
 
             <View style={styles.followRow}>
-              <Text style={styles.followNumber}>1</Text>
+              {/* DİNAMİK VERİ: TAKİPÇİ VE TAKİP EDİLEN */}
+              <Text style={styles.followNumber}>{profile.followerCount}</Text>
               <Text style={styles.followLabel}> Takipçi</Text>
-              <Text style={styles.followNumber}> 1</Text>
+              <Text style={styles.followNumber}> {profile.followingCount}</Text>
               <Text style={styles.followLabel}> Takip Edilen</Text>
             </View>
           </View>
@@ -69,15 +145,18 @@ export default function Profile() {
           </View>
 
           <View style={styles.garageRow}>
-            <View style={styles.garageItem}>
-              <Image source={garageOne} style={styles.garageImage} />
-              <Text style={styles.imageLabel}>BMW X1</Text>
-            </View>
-
-            <View style={styles.garageItem}>
-              <Image source={garageTwo} style={styles.garageImage} />
-              <Text style={styles.imageLabel}>BMW X1</Text>
-            </View>
+            {/* EĞER GARAJ BOŞSA BİLGİ VERELİM, DEĞİLSE ARAÇLARI LİSTELEYELİM */}
+            {profile.garage && profile.garage.length > 0 ? (
+              profile.garage.map((vehicle, index) => (
+                <View style={styles.garageItem} key={vehicle.id}>
+                  {/* Resimleri şimdilik sırayla sabit veriyoruz */}
+                  <Image source={index % 2 === 0 ? garageOne : garageTwo} style={styles.garageImage} />
+                  <Text style={styles.imageLabel}>{vehicle.brand} {vehicle.model}</Text>
+                </View>
+              ))
+            ) : (
+              <Text style={{color: '#a9a9ae', marginLeft: 10}}>Garajınızda henüz araç yok.</Text>
+            )}
           </View>
         </View>
 
@@ -87,20 +166,21 @@ export default function Profile() {
             <Text style={styles.chevron}>›</Text>
           </View>
 
-          <PostRow
-            image={postImage}
-            title="Fethiye Sürüşü'nden"
-            time="2 saat önce"
-            likes="29"
-            comments="12"
-          />
-          <PostRow
-            image={garageOne}
-            title="Gün batımı sürüşü"
-            time="3 gün önce"
-            likes="48"
-            comments="4"
-          />
+          {/* DİNAMİK VERİ: GÖNDERİLER */}
+          {profile.posts && profile.posts.length > 0 ? (
+            profile.posts.map((post) => (
+              <PostRow
+                key={post.id}
+                image={postImage} // Sabit resim
+                title={post.content} // Backend'den gelen içerik
+                time={post.time}
+                likes={post.likesCount.toString()}
+                comments={post.commentsCount.toString()}
+              />
+            ))
+          ) : (
+            <Text style={{color: '#a9a9ae', marginLeft: 10, marginBottom: 10}}>Henüz bir gönderi paylaşmadınız.</Text>
+          )}
         </View>
 
         <View style={styles.card}>
@@ -109,6 +189,7 @@ export default function Profile() {
             <Text style={styles.chevron}>›</Text>
           </View>
 
+          {/* Rotaları şimdilik tasarım bozulmasın diye sabit bırakıyorum */}
           <RouteRow
             title="İstanbul'dan Bodrum'a Sürüş"
             detail="702 km   8 saat sürüş"
