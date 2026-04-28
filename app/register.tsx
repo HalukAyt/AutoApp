@@ -19,14 +19,14 @@ export default function Register() {
   const [name, setName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
-  const [userName, setUserName] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
 
   interface RegisterData {
     name: string;
     lastName: string;
     email: string;
-    userName: string;
+    username: string;
     password: string;
   }
 
@@ -35,7 +35,7 @@ export default function Register() {
       name: name,
       lastName: lastName,
       email: email,
-      userName: userName,
+      username: username,
       password: password,
     } as RegisterData);
     try {
@@ -90,8 +90,8 @@ export default function Register() {
             placeholder="Kullanıcı Adı"
             placeholderTextColor="#9a9a9a"
             style={styles.input}
-            value={userName}
-            onChangeText={setUserName}
+            value={username}
+            onChangeText={setUsername}
           />
 
           <View style={styles.passwordField}>

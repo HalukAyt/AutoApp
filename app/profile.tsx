@@ -3,6 +3,7 @@ import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import type { ImageSourcePropType } from "react-native";
 import {
+  ActivityIndicator,
   Alert,
   Image,
   Pressable,
@@ -11,9 +12,8 @@ import {
   StyleSheet,
   Text,
   View,
-  ActivityIndicator
 } from "react-native";
-import api from "../api"; 
+import api from "../api";
 
 const coverImage = require("../assets/images/21.jpg");
 const avatarImage = require("../assets/images/3.jpg");
@@ -38,13 +38,22 @@ interface Post {
   time: string;
 }
 
+interface Route {
+  id: number;
+  title: string;
+  detail: string;
+  duration: number;
+  distance: number;
+}
+
 interface UserProfile {
   name: string;
   username: string;
-  followerCount: number; 
+  followerCount: number;
   followingCount: number;
   garage: Vehicle[];
   posts: Post[];
+  routes: Route[];
 }
 
 export default function Profile() {
@@ -58,20 +67,19 @@ export default function Profile() {
     const fetchProfileData = async () => {
       try {
         const token = await AsyncStorage.getItem("token");
-        
-        // Token'ı başlığa (Header) ekleyerek GET isteği atıyoruz
+
         const response = await api().get("/profile/me", {
           headers: {
-            Authorization: `Bearer ${token}` // Spring Security bu bileti bekler
-          }
+            Authorization: `Bearer ${token}`,
+          },
         });
-        
-        setProfile(response.data); // Gelen veriyi state'e kaydet
+
+        setProfile(response.data);
       } catch (error) {
         console.log("Profil çekme hatası:", error);
         Alert.alert("Hata", "Profil bilgileri alınamadı.");
       } finally {
-        setLoading(false); // Yükleme bitti
+        setLoading(false);
       }
     };
 
@@ -80,7 +88,14 @@ export default function Profile() {
 
   if (loading) {
     return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#17181a" }}>
+      <View
+        style={{
+          flex: 1,
+          justifyContent: "center",
+          alignItems: "center",
+          backgroundColor: "#17181a",
+        }}
+      >
         <ActivityIndicator size="large" color="#a8732b" />
       </View>
     );
@@ -89,7 +104,14 @@ export default function Profile() {
   // Eğer profil boş geldiyse (hata olduysa)
   if (!profile) {
     return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#17181a" }}>
+      <View
+        style={{
+          flex: 1,
+          justifyContent: "center",
+          alignItems: "center",
+          backgroundColor: "#17181a",
+        }}
+      >
         <Text style={{ color: "white" }}>Veri bulunamadı.</Text>
       </View>
     );
@@ -150,12 +172,19 @@ export default function Profile() {
               profile.garage.map((vehicle, index) => (
                 <View style={styles.garageItem} key={vehicle.id}>
                   {/* Resimleri şimdilik sırayla sabit veriyoruz */}
-                  <Image source={index % 2 === 0 ? garageOne : garageTwo} style={styles.garageImage} />
-                  <Text style={styles.imageLabel}>{vehicle.brand} {vehicle.model}</Text>
+                  <Image
+                    source={index % 2 === 0 ? garageOne : garageTwo}
+                    style={styles.garageImage}
+                  />
+                  <Text style={styles.imageLabel}>
+                    {vehicle.brand} {vehicle.model}
+                  </Text>
                 </View>
               ))
             ) : (
-              <Text style={{color: '#a9a9ae', marginLeft: 10}}>Garajınızda henüz araç yok.</Text>
+              <Text style={{ color: "#a9a9ae", marginLeft: 10 }}>
+                Garajınızda henüz araç yok.
+              </Text>
             )}
           </View>
         </View>
@@ -179,7 +208,11 @@ export default function Profile() {
               />
             ))
           ) : (
-            <Text style={{color: '#a9a9ae', marginLeft: 10, marginBottom: 10}}>Henüz bir gönderi paylaşmadınız.</Text>
+            <Text
+              style={{ color: "#a9a9ae", marginLeft: 10, marginBottom: 10 }}
+            >
+              Henüz bir gönderi paylaşmadınız.
+            </Text>
           )}
         </View>
 
@@ -190,16 +223,23 @@ export default function Profile() {
           </View>
 
           {/* Rotaları şimdilik tasarım bozulmasın diye sabit bırakıyorum */}
-          <RouteRow
-            title="İstanbul'dan Bodrum'a Sürüş"
-            detail="702 km   8 saat sürüş"
-            image={routeMapOne}
-          />
-          <RouteRow
-            title="Ayazağa'dan SAW'A Sürüş"
-            detail="36 km   30 dakika sürüş"
-            image={routeMapTwo}
-          />
+          {profile.routes && profile.routes.length > 0 ? (
+            profile.routes.map((route) => (
+              <RouteRow
+                key={route.id}
+                title={route.title}
+                detail={route.detail}
+                duration={route.duration}
+                distance={route.distance}
+              />
+            ))
+          ) : (
+            <Text
+              style={{ color: "#a9a9ae", marginLeft: 10, marginBottom: 10 }}
+            >
+              Henüz bir rota oluşturmadınız.
+            </Text>
+          )}
         </View>
         <Pressable
           style={styles.featureCard}
@@ -243,17 +283,20 @@ function PostRow({
 function RouteRow({
   title,
   detail,
-  image,
+  duration,
+  distance,
 }: {
   title: string;
   detail: string;
-  image: ImageSourcePropType;
+  duration: number;
+  distance: number;
 }) {
   return (
     <View style={styles.routeRow}>
-      <Image source={image} style={styles.routeImage} />
       <View style={styles.routeTextBox}>
         <Text style={styles.rowTitle}>{title}</Text>
+        <Text style={styles.metricText}>{duration} saat · {distance} km</Text>
+        <Text style={styles.metricText}>{}</Text>
         <Text style={styles.rowDetail}>{detail}</Text>
       </View>
     </View>
