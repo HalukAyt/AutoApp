@@ -1,4 +1,4 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { register } from "@/services/authService";
 import { router } from "expo-router";
 import { useState } from "react";
 import {
@@ -12,7 +12,6 @@ import {
   TextInput,
   View,
 } from "react-native";
-import api from "../api";
 
 export default function Register() {
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
@@ -22,24 +21,16 @@ export default function Register() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
 
-  interface RegisterData {
-    name: string;
-    lastName: string;
-    email: string;
-    username: string;
-    password: string;
-  }
 
   const handleRegister = async () => {
-    const response = await api().post("/auth/register", {
-      name: name,
-      lastName: lastName,
-      email: email,
-      username: username,
-      password: password,
-    } as RegisterData);
     try {
-      await AsyncStorage.setItem("token", response.data.token);
+      await register({
+        name,
+        lastName,
+        email,
+        username,
+        password,
+      });
       Alert.alert("Kayıt başarılı! Giriş yapılıyor...");
       router.push("/home");
     } catch (error) {

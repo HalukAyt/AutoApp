@@ -1,5 +1,4 @@
-import api from "@/api";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { login } from "@/services/authService";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import {
@@ -17,25 +16,15 @@ import {
 export default function Index() {
   const router = useRouter();
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  interface LoginData {
-    email: string;
-    password: string;
-  }
+  const [email, setEmail] = useState("haluk@gmail.com");
+  const [password, setPassword] = useState("123456");
 
   const handleLogin = async () => {
     try {
-      const response = await api().post("/auth/login", {
-        email: email,
-        password: password,
-      } as LoginData);
-
-      const token = response.data.token;
-      await AsyncStorage.setItem("token", token);
+      await login({ email, password });
       router.push("/home");
    
-    } catch (error) {
+    } catch {
       Alert.alert("Giriş sırasında bir hata oluştu. Lütfen tekrar deneyin.");
     }
   };

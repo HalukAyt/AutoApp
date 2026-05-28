@@ -1,67 +1,10 @@
-import api from "@/api";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { FormField } from "@/components/forms/FormField";
+import { getProfile, updateProfile } from "@/services/profileService";
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
-import {
-  Alert,
-  Pressable,
-  SafeAreaView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
+import { Alert, Pressable, SafeAreaView, StyleSheet, Text, View } from "react-native";
 
 export default function EditProfile() {
-  interface Vehicle {
-    id: number;
-    brand: string;
-    model: string;
-    year: number;
-    licensePlate?: string;
-    imageUrl?: string;
-  }
-
-  interface UpdateProfileRequest {
-    name: string;
-    lastName: string;
-    email: string;
-    phoneNumber: string;
-  }
-
-  interface Post {
-    id: number;
-    content: string;
-    likesCount: number;
-    commentsCount: number;
-    time: string;
-  }
-
-  interface Route {
-    id: number;
-    title: string;
-    detail: string;
-    duration: number;
-    distance: number;
-  }
-
-  interface UserProfile {
-    name: string;
-    lastName: string;
-    username: string;
-    phoneNumber: string;
-    email: string;
-    profilePhoto: string | null;
-    coverPhoto: string | null;
-    followerCount: number;
-    followingCount: number;
-    garage: Vehicle[];
-    posts: Post[];
-    routes: Route[];
-  }
-  const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [UpdateProfile, setUpdateProfile] =
-    useState<UpdateProfileRequest | null>(null);
   const [loading, setLoading] = useState(true);
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
@@ -71,75 +14,59 @@ export default function EditProfile() {
   const handleUpdate = async () => {
     try {
       setLoading(true);
-      const token = await AsyncStorage.getItem("token");
+      await updateProfile({
+        name,
+        lastName,
+        phoneNumber,
+      });
 
-      const response = await api().post(
-        "/profile/updateProfile",
-        {
-          name: name,
-          lastName: lastName,
-          phoneNumber: phoneNumber,
-        },
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        },
-      );
-
-      Alert.alert("Başarılı", "Profil güncellendi.");
+      Alert.alert("Ba\u015far\u0131l\u0131", "Profil g\u00fcncellendi.");
     } catch (error) {
       console.error(error);
-      Alert.alert("Hata", "Profil güncellenirken bir sorun oluştu.");
+      Alert.alert("Hata", "Profil g\u00fcncellenirken bir sorun olu\u015ftu.");
     } finally {
       setLoading(false);
     }
   };
+
   useEffect(() => {
     const fetchProfileData = async () => {
       try {
-        const token = await AsyncStorage.getItem("token");
-        const response = await api().get("/profile/me", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-
-        // Veriyi al
-        const data = response.data;
-        setProfile(data);
-
-        // State'leri güncelle ki kutucuklar dolsun!
+        const data = await getProfile();
         setName(data.name || "");
         setLastName(data.lastName || "");
         setEmail(data.email || "");
         setPhoneNumber(data.phoneNumber || "");
-      } catch (error) {
-        Alert.alert("Hata", "Profil bilgileri alınamadı.");
+      } catch {
+        Alert.alert("Hata", "Profil bilgileri al\u0131namad\u0131.");
       } finally {
         setLoading(false);
       }
     };
+
     fetchProfileData();
   }, []);
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.content}>
-        <Text style={styles.title}>Profil Düzenle</Text>
-        <Text style={styles.sectionTitle}>Kişisel Bilgiler</Text>
+        <Text style={styles.title}>{"Profil D\u00fczenle"}</Text>
+        <Text style={styles.sectionTitle}>{"Ki\u015fisel Bilgiler"}</Text>
 
-        <Field label="Ad" value={name} onChangeText={setName} />
-        <Field label="Soyad" value={lastName} onChangeText={setLastName} />
-        <Field label="E-posta" value={email} onChangeText={setEmail} />
-        <Field
+        <FormField label="Ad" value={name} onChangeText={setName} />
+        <FormField label="Soyad" value={lastName} onChangeText={setLastName} />
+        <FormField label="E-posta" value={email} onChangeText={setEmail} />
+        <FormField
           label="Telefon"
           value={phoneNumber}
           onChangeText={setPhoneNumber}
         />
+
         <Pressable
           style={styles.wideButton}
-          onPress={() => {
-            router.push("/add-vehicle");
-          }}
+          onPress={() => router.push("/add-vehicle")}
         >
-          <Text style={styles.buttonText}>Araç Ekle</Text>
+          <Text style={styles.buttonText}>{"Ara\u00e7 Ekle"}</Text>
         </Pressable>
 
         <Pressable
@@ -156,69 +83,20 @@ export default function EditProfile() {
   );
 }
 
-function Field({
-  label,
-  value,
-  onChangeText,
-  placeholder,
-}: {
-  label: string;
-  value?: string;
-  onChangeText: (text: string) => void; 
-  placeholder?: string;
-}) {
-  return (
-    <View style={styles.field}>
-      <Text style={styles.label}>{label}</Text>
-      <TextInput
-        value={value}
-        onChangeText={onChangeText}
-        placeholder={placeholder}
-        placeholderTextColor="#6f7075"
-        style={styles.input}
-      />
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: "#242528" },
-  content: { flex: 1, paddingHorizontal: 34, paddingTop: 54 },
-  title: {
-    color: "#f3f3f4",
-    fontSize: 34,
-    fontWeight: "800",
-    marginBottom: 30,
-  },
-  sectionTitle: {
-    color: "#f3f3f4",
-    fontSize: 20,
-    fontWeight: "800",
-    marginBottom: 16,
-  },
-  field: { marginBottom: 16 },
-  label: {
-    color: "#e7e7e9",
-    fontSize: 18,
-    fontWeight: "800",
-    marginBottom: 8,
-    paddingLeft: 14,
-  },
-  input: {
-    backgroundColor: "#0c0c0e",
-    borderRadius: 8,
-    color: "#f5f5f5",
+  buttonText: {
+    color: "#f7f7f7",
     fontSize: 16,
-    height: 46,
-    paddingHorizontal: 18,
+    fontWeight: "700",
   },
-  wideButton: {
-    alignItems: "center",
-    backgroundColor: "#c77d2b",
-    borderRadius: 8,
-    height: 48,
-    justifyContent: "center",
-    marginTop: 18,
+  content: {
+    flex: 1,
+    paddingHorizontal: 34,
+    paddingTop: 54,
+  },
+  safeArea: {
+    backgroundColor: "#242528",
+    flex: 1,
   },
   saveButton: {
     alignItems: "center",
@@ -230,5 +108,24 @@ const styles = StyleSheet.create({
     marginTop: 84,
     width: 178,
   },
-  buttonText: { color: "#f7f7f7", fontSize: 16, fontWeight: "700" },
+  sectionTitle: {
+    color: "#f3f3f4",
+    fontSize: 20,
+    fontWeight: "800",
+    marginBottom: 16,
+  },
+  title: {
+    color: "#f3f3f4",
+    fontSize: 34,
+    fontWeight: "800",
+    marginBottom: 30,
+  },
+  wideButton: {
+    alignItems: "center",
+    backgroundColor: "#c77d2b",
+    borderRadius: 8,
+    height: 48,
+    justifyContent: "center",
+    marginTop: 18,
+  },
 });
