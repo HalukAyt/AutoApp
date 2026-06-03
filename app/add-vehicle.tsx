@@ -1,5 +1,5 @@
-import api from "@/api";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { DatePickerField } from "@/components/forms/DatePickerField";
+import { addVehicle } from "@/services/vehicleService";
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
@@ -7,7 +7,6 @@ import { useState } from "react";
 import {
     ActivityIndicator,
     Alert,
-    Platform,
     Pressable,
     SafeAreaView,
     ScrollView,
@@ -24,6 +23,7 @@ export default function AddVehicle() {
   const [brand, setBrand] = useState("");
   const [model, setModel] = useState("");
   const [year, setYear] = useState("");
+  const [inspectionAppointmentDate, setInspectionAppointmentDate] = useState("");
   const [imageUri, setImageUri] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -83,29 +83,6 @@ export default function AddVehicle() {
     }
   };
 
-  // Resim alanına tıklandığında seçenekleri gösteren menü
-  const handleImagePress = () => {
-    console.log("LOG: Resim kutucuğuna basıldı, Alert menüsü açılıyor.");
-    Alert.alert(
-      "Araç Fotoğrafı Ekle",
-      "Lütfen fotoğraf eklemek için bir yöntem seçin.",
-      [
-        {
-          text: "Fotoğraf Çek (Kamera)",
-          onPress: takeNewPhoto,
-        },
-        {
-          text: "Galeriden Seç",
-          onPress: chooseFromLibrary,
-        },
-        {
-          text: "İptal",
-          style: "cancel",
-        },
-      ],
-    );
-  };
-
   // --- KAYDETME MANTIĞI ---
 
   // Tüm verileri tek seferde Backend'e gönderme
@@ -118,55 +95,20 @@ export default function AddVehicle() {
 
     setLoading(true);
     try {
-      const token = await AsyncStorage.getItem("token");
-      const baseUrl = api().defaults.baseURL;
-
-      // 2. Verileri Paketliyoruz (FormData)
-      const formData = new FormData();
-
-      // Sadece kullanıcı plakayı yazmışsa pakete ekliyoruz
-      if (licensePlate.trim() !== "") {
-        formData.append("licensePlate", licensePlate);
-      }
-
-      formData.append("brand", brand);
-      formData.append("model", model);
-      formData.append("year", year);
-
-      // 3. Eğer fotoğraf seçilmişse pakete ekliyoruz
-      if (imageUri) {
-        const uri =
-          Platform.OS === "android"
-            ? imageUri
-            : imageUri.replace("file://", "");
-        formData.append("file", {
-          uri: uri,
-          name: "vehicle.jpg",
-          type: "image/jpeg",
-        } as any);
-      }
-
-      // 4. Fetch ile tek atışta (Atomic) gönderiyoruz
-      console.log("LOG: Araç kaydediliyor...");
-      const response = await fetch(`${baseUrl}/vehicle/add`, {
-        method: "POST",
-        body: formData,
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+      console.log("LOG: Ara\u00e7 kaydediliyor...");
+      await addVehicle({
+        licensePlate,
+        brand,
+        model,
+        year,
+        inspectionAppointmentDate,
+        imageUri,
       });
 
-      // 5. Başarı/Hata Yönetimi
-      if (response.ok) {
-        console.log("LOG: Araç başarıyla kaydedildi.");
-        Alert.alert("Başarılı", "Araç garajınıza başarıyla eklendi!", [
-          { text: "Tamam", onPress: () => router.back() },
-        ]);
-      } else {
-        const errorText = await response.text();
-        console.error("Araç eklenemedi:", errorText);
-        Alert.alert("Hata", "Araç eklenemedi: " + response.status);
-      }
+      console.log("LOG: Ara\u00e7 ba\u015far\u0131yla kaydedildi.");
+      Alert.alert("Ba\u015far\u0131l\u0131", "Ara\u00e7 garaj\u0131n\u0131za ba\u015far\u0131yla eklendi!", [
+        { text: "Tamam", onPress: () => router.back() },
+      ]);
     } catch (error) {
       console.error("Araç kaydetme hatası:", error);
       Alert.alert("Hata", "Bir hata oluştu.");
@@ -271,6 +213,13 @@ export default function AddVehicle() {
             maxLength={4}
             value={year}
             onChangeText={setYear}
+          />
+
+          <DatePickerField
+            label="Muayene Randevu Tarihi"
+            value={inspectionAppointmentDate}
+            onChange={setInspectionAppointmentDate}
+            optional
           />
         </View>
 

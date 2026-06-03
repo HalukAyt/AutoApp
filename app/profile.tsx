@@ -1,12 +1,20 @@
+import { LoadingScreen } from "@/components/LoadingScreen";
+import { GarageVehicleCard } from "@/components/profile/GarageVehicleCard";
+import { ProfilePostRow } from "@/components/profile/ProfilePostRow";
+import { ProfileRouteRow } from "@/components/profile/ProfileRouteRow";
+import { ProfileSection } from "@/components/profile/ProfileSection";
+import { VehicleEditModal } from "@/components/profile/VehicleEditModal";
+import { logout } from "@/services/authService";
+import { getProfile } from "@/services/profileService";
 import { uploadImageToServer } from "@/services/userProfileService";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { updateVehicle } from "@/services/vehicleService";
+import type { UserProfile, Vehicle } from "@/types/domain";
+import { getSecureImageUrl } from "@/utils/imageUrl";
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
-import type { ImageSourcePropType } from "react-native";
 import {
-  ActivityIndicator,
   Alert,
   Pressable,
   SafeAreaView,
@@ -15,68 +23,49 @@ import {
   Text,
   View,
 } from "react-native";
-import api from "../api";
 
 const coverImage = require("../assets/images/21.jpg");
 const avatarImage = require("../assets/images/3.jpg");
 const garageOne = require("../assets/images/5.jpg");
 const garageTwo = require("../assets/images/6.jpg");
 const postImage = require("../assets/images/33.jpg");
-const routeMapOne = require("../assets/images/9.png");
-const routeMapTwo = require("../assets/images/10.png");
-
-interface Vehicle {
-  id: number;
-  brand: string;
-  model: string;
-  year: number;
-  licensePlate?: string;
-  imageUrl?: string;
-}
-
-interface Post {
-  id: number;
-  content: string;
-  likesCount: number;
-  commentsCount: number;
-  time: string;
-}
-
-interface Route {
-  id: number;
-  title: string;
-  detail: string;
-  duration: number;
-  distance: number;
-}
-
-interface UserProfile {
-  name: string;
-  username: string;
-  profilePhoto: string | null;
-  coverPhoto: string | null;
-  followerCount: number;
-  followingCount: number;
-  garage: Vehicle[];
-  posts: Post[];
-  routes: Route[];
-}
-
-// HTTP -> HTTPS dönüşümü için yardımcı fonksiyon
-const getSecureImageUrl = (url: string | null | undefined) => {
-  if (!url) return null;
-  return url.replace("http://", "https://");
-};
 
 export default function Profile() {
   const router = useRouter();
 
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isEditModalVisible, setEditModalVisible] = useState(false);
+  const [editingVehicleId, setEditingVehicleId] = useState<number | null>(null);
+  const [editBrand, setEditBrand] = useState("");
+  const [editModel, setEditModel] = useState("");
+  const [editYear, setEditYear] = useState("");
+  const [editLicensePlate, setEditLicensePlate] = useState("");
+  const [editInspectionAppointmentDate, setEditInspectionAppointmentDate] =
+    useState("");
+  const [editImageUri, setEditImageUri] = useState<string | null>(null);
+  const [isUpdating, setIsUpdating] = useState(false);
 
-  // --- AKILLI VE TEK (DRY) FOTOĞRAF SEÇİCİ FONKSİYON ---
-  const handleImageSelection = async (isCover: boolean, fromCamera: boolean) => {
-    // İzinleri kontrol et
+  useEffect(() => {
+    const fetchProfileData = async () => {
+      try {
+        const profileData = await getProfile();
+        setProfile(profileData);
+      } catch (error) {
+        console.log("Profile fetch error:", error);
+        Alert.alert("Hata", "Profil bilgileri al\u0131namad\u0131.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProfileData();
+  }, []);
+
+  const handleImageSelection = async (
+    isCover: boolean,
+    fromCamera: boolean,
+  ) => {
     const permissionResult = fromCamera
       ? await ImagePicker.requestCameraPermissionsAsync()
       : await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -86,108 +75,152 @@ export default function Profile() {
       return;
     }
 
-    // Kamera/Galeri ayarlarını belirle (Kapak ise 16:9, Profil ise 1:1)
     const options: ImagePicker.ImagePickerOptions = {
       allowsEditing: true,
       aspect: isCover ? [16, 9] : [1, 1],
       quality: 0.5,
     };
 
-    // İsteğe göre Kamera veya Galeriyi aç
     const result = fromCamera
       ? await ImagePicker.launchCameraAsync(options)
       : await ImagePicker.launchImageLibraryAsync(options);
 
-    if (!result.canceled) {
-      const uri = result.assets[0].uri;
+    if (result.canceled) return;
 
-      // Ekranı anında güncelle (Hızlı UX)
-      setProfile((prev) => {
-        if (!prev) return prev;
-        return isCover ? { ...prev, coverPhoto: uri } : { ...prev, profilePhoto: uri };
-      });
+    const uri = result.assets[0].uri;
+    setProfile((prev) => {
+      if (!prev) return prev;
+      return isCover
+        ? { ...prev, coverPhoto: uri }
+        : { ...prev, profilePhoto: uri };
+    });
 
-      // Arka planda sunucuya yükle
-      const endpoint = isCover ? "/profile/uploadCoverPhoto" : "/profile/uploadProfilePhoto";
-      const photoType = isCover ? "cover" : "profile";
+    const endpoint = isCover
+      ? "/profile/uploadCoverPhoto"
+      : "/profile/uploadProfilePhoto";
+    const photoType = isCover ? "cover" : "profile";
 
-      uploadImageToServer(uri, endpoint, photoType);
-    }
+    uploadImageToServer(uri, endpoint, photoType);
   };
 
-  // --- PROFİL VE KAPAK MENÜLERİ ---
   const handleProfilePhotoPress = () => {
-    Alert.alert("Profil Fotoğrafı Seç", "Bir seçenek belirleyin.", [
-      { text: "Fotoğraf Çek", onPress: () => handleImageSelection(false, true) },
-      { text: "Galeriden Seç", onPress: () => handleImageSelection(false, false) },
-      { text: "İptal", style: "cancel" },
-    ]);
+    Alert.alert(
+      "Profil Foto\u011fraf\u0131 Se\u00e7",
+      "Bir se\u00e7enek belirleyin.",
+      [
+        {
+          text: "Foto\u011fraf \u00c7ek",
+          onPress: () => handleImageSelection(false, true),
+        },
+        {
+          text: "Galeriden Se\u00e7",
+          onPress: () => handleImageSelection(false, false),
+        },
+        { text: "\u0130ptal", style: "cancel" },
+      ],
+    );
   };
 
   const handleCoverPhotoPress = () => {
-    Alert.alert("Kapak Fotoğrafı Seç", "Bir seçenek belirleyin.", [
-      { text: "Fotoğraf Çek", onPress: () => handleImageSelection(true, true) },
-      { text: "Galeriden Seç", onPress: () => handleImageSelection(true, false) },
-      { text: "İptal", style: "cancel" },
-    ]);
+    Alert.alert(
+      "Kapak Foto\u011fraf\u0131 Se\u00e7",
+      "Bir se\u00e7enek belirleyin.",
+      [
+        {
+          text: "Foto\u011fraf \u00c7ek",
+          onPress: () => handleImageSelection(true, true),
+        },
+        {
+          text: "Galeriden Se\u00e7",
+          onPress: () => handleImageSelection(true, false),
+        },
+        { text: "\u0130ptal", style: "cancel" },
+      ],
+    );
   };
 
-  // --- VERİ ÇEKME ---
-  useEffect(() => {
-    const fetchProfileData = async () => {
-      try {
-        const token = await AsyncStorage.getItem("token");
+  const openEditVehicleModal = (vehicle: Vehicle) => {
+    setEditingVehicleId(vehicle.id);
+    setEditBrand(vehicle.brand);
+    setEditModel(vehicle.model);
+    setEditYear(vehicle.year.toString());
+    setEditLicensePlate(vehicle.licensePlate || "");
+    setEditInspectionAppointmentDate(vehicle.inspectionAppointmentDate || "");
+    setEditImageUri(null);
+    setEditModalVisible(true);
+  };
 
-        const response = await api().get("/profile/me", {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
+  const pickVehicleImage = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      allowsEditing: true,
+      aspect: [16, 9],
+      quality: 0.5,
+    });
 
-        setProfile(response.data);
-      } catch (error) {
-        console.log("Profil çekme hatası:", error);
-        Alert.alert("Hata", "Profil bilgileri alınamadı.");
-      } finally {
-        setLoading(false);
-      }
-    };
+    if (!result.canceled) {
+      setEditImageUri(result.assets[0].uri);
+    }
+  };
 
-    fetchProfileData();
-  }, []);
+  const handleUpdateVehicle = async () => {
+    if (!editingVehicleId) return;
 
-  // --- YÜKLENİYOR VE BOŞ DURUM EKRANLARI ---
+    const parsedYear = parseInt(editYear, 10);
+    if (!editBrand.trim() || !editModel.trim() || Number.isNaN(parsedYear)) {
+      Alert.alert(
+        "Uyar\u0131",
+        "L\u00fctfen marka, model ve y\u0131l alanlar\u0131n\u0131 doldurun.",
+      );
+      return;
+    }
+
+    setIsUpdating(true);
+    try {
+      const updatedVehicle = await updateVehicle(editingVehicleId, {
+        brand: editBrand.trim(),
+        model: editModel.trim(),
+        year: parsedYear,
+        licensePlate: editLicensePlate.trim(),
+        inspectionAppointmentDate: editInspectionAppointmentDate.trim(),
+        imageUri: editImageUri,
+      });
+
+      setProfile((prev) => {
+        if (!prev) return prev;
+        const updatedGarage = prev.garage.map((vehicle) =>
+          vehicle.id === editingVehicleId ? updatedVehicle : vehicle,
+        );
+        return { ...prev, garage: updatedGarage };
+      });
+
+      Alert.alert(
+        "Ba\u015far\u0131l\u0131",
+        "Ara\u00e7 bilgileri g\u00fcncellendi!",
+      );
+      setEditModalVisible(false);
+    } catch (error) {
+      console.error("Vehicle update error:", error);
+      Alert.alert(
+        "Hata",
+        "Ara\u00e7 g\u00fcncellenirken bir sorun olu\u015ftu.",
+      );
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
   if (loading) {
-    return (
-      <View
-        style={{
-          flex: 1,
-          justifyContent: "center",
-          alignItems: "center",
-          backgroundColor: "#17181a",
-        }}
-      >
-        <ActivityIndicator size="large" color="#a8732b" />
-      </View>
-    );
+    return <LoadingScreen />;
   }
 
   if (!profile) {
     return (
-      <View
-        style={{
-          flex: 1,
-          justifyContent: "center",
-          alignItems: "center",
-          backgroundColor: "#17181a",
-        }}
-      >
-        <Text style={{ color: "white" }}>Veri bulunamadı.</Text>
+      <View style={styles.emptyScreen}>
+        <Text style={styles.emptyScreenText}>Veri bulunamad\u0131.</Text>
       </View>
     );
   }
 
-  // --- ARAYÜZ (UI) ---
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView
@@ -195,10 +228,13 @@ export default function Profile() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.coverWrap}>
-          <Pressable style={{ flex: 1 }} onPress={handleCoverPhotoPress}>
+          <Pressable
+            style={styles.coverPressable}
+            onPress={handleCoverPhotoPress}
+          >
             <Image
               source={
-                profile?.coverPhoto
+                profile.coverPhoto
                   ? { uri: getSecureImageUrl(profile.coverPhoto) }
                   : coverImage
               }
@@ -208,7 +244,7 @@ export default function Profile() {
             />
           </Pressable>
           <Pressable style={styles.settingsButton}>
-            <Text style={styles.settingsText}>⚙</Text>
+            <Text style={styles.settingsText}>{"\u2699"}</Text>
           </Pressable>
         </View>
 
@@ -216,11 +252,11 @@ export default function Profile() {
           <View style={styles.avatar}>
             <Pressable
               onPress={handleProfilePhotoPress}
-              style={{ width: "100%", height: "100%" }}
+              style={styles.avatarPressable}
             >
               <Image
                 source={
-                  profile?.profilePhoto
+                  profile.profilePhoto
                     ? { uri: getSecureImageUrl(profile.profilePhoto) }
                     : avatarImage
                 }
@@ -238,7 +274,7 @@ export default function Profile() {
                 style={styles.editButton}
                 onPress={() => router.push("/edit-profile")}
               >
-                <Text style={styles.editText}>Profili Düzenle</Text>
+                <Text style={styles.editText}>{"Profili D\u00fczenle"}</Text>
               </Pressable>
             </View>
 
@@ -246,58 +282,42 @@ export default function Profile() {
 
             <View style={styles.followRow}>
               <Text style={styles.followNumber}>{profile.followerCount}</Text>
-              <Text style={styles.followLabel}> Takipçi</Text>
+              <Text style={styles.followLabel}>{" Takip\u00e7i"}</Text>
               <Text style={styles.followNumber}> {profile.followingCount}</Text>
               <Text style={styles.followLabel}> Takip Edilen</Text>
             </View>
           </View>
         </View>
 
-        <View style={styles.card}>
-          <View style={styles.cardHeader}>
-            <Text style={styles.cardTitle}>Garajım</Text>
-            <Text style={styles.chevron}>›</Text>
-          </View>
-
+        <ProfileSection title={"Garaj\u0131m"}>
           <View style={styles.garageRow}>
-            {profile.garage && profile.garage.length > 0 ? (
+            {profile.garage.length > 0 ? (
               profile.garage.map((vehicle, index) => (
-                <View style={styles.garageItem} key={vehicle.id}>
-                  <Image
-                    source={
-                      vehicle.imageUrl
-                        ? { uri: getSecureImageUrl(vehicle.imageUrl) }
-                        : (index % 2 === 0 ? garageOne : garageTwo) 
-                    }
-                    style={styles.garageImage}
-                    contentFit="cover"
-                    transition={200}
-                  />
-                  <Text style={styles.imageLabel}>
-                    {vehicle.brand} {vehicle.model} {vehicle.year}
-                    {vehicle.licensePlate ? ` - ${vehicle.licensePlate}` : ""}
-                  </Text>
-                </View>
+                <GarageVehicleCard
+                  key={vehicle.id}
+                  vehicle={vehicle}
+                  fallbackImage={index % 2 === 0 ? garageOne : garageTwo}
+                  onPress={() => openEditVehicleModal(vehicle)}
+                />
               ))
             ) : (
-              <Text style={{ color: "#a9a9ae", marginLeft: 10 }}>
-                Garajınızda henüz araç yok.
+              <Text style={styles.emptyText}>
+                {"Garaj\u0131n\u0131zda hen\u00fcz ara\u00e7 yok."}
               </Text>
             )}
           </View>
-        </View>
+        </ProfileSection>
 
-        <View style={styles.card}>
-          <View style={styles.cardHeader}>
-            <Text style={styles.cardTitle}>Gönderiler</Text>
-            <Text style={styles.chevron}>›</Text>
-          </View>
-
-          {profile.posts && profile.posts.length > 0 ? (
+        <ProfileSection title={"G\u00f6nderiler"}>
+          {profile.posts.length > 0 ? (
             profile.posts.map((post) => (
-              <PostRow
+              <ProfilePostRow
                 key={post.id}
-                image={postImage}
+                image={
+                  post.postPhoto
+                    ? { uri: getSecureImageUrl(post.postPhoto) }
+                    : postImage
+                }
                 title={post.content}
                 time={post.time}
                 likes={post.likesCount.toString()}
@@ -305,23 +325,16 @@ export default function Profile() {
               />
             ))
           ) : (
-            <Text
-              style={{ color: "#a9a9ae", marginLeft: 10, marginBottom: 10 }}
-            >
-              Henüz bir gönderi paylaşmadınız.
+            <Text style={styles.emptyText}>
+              {"Hen\u00fcz bir g\u00f6nderi payla\u015fmad\u0131n\u0131z."}
             </Text>
           )}
-        </View>
+        </ProfileSection>
 
-        <View style={styles.card}>
-          <View style={styles.cardHeader}>
-            <Text style={styles.cardTitle}>Rotalar</Text>
-            <Text style={styles.chevron}>›</Text>
-          </View>
-
-          {profile.routes && profile.routes.length > 0 ? (
+        <ProfileSection title="Rotalar">
+          {profile.routes.length > 0 ? (
             profile.routes.map((route) => (
-              <RouteRow
+              <ProfileRouteRow
                 key={route.id}
                 title={route.title}
                 detail={route.detail}
@@ -330,92 +343,158 @@ export default function Profile() {
               />
             ))
           ) : (
-            <Text
-              style={{ color: "#a9a9ae", marginLeft: 10, marginBottom: 10 }}
-            >
-              Henüz bir rota oluşturmadınız.
+            <Text style={styles.emptyText}>
+              {"Hen\u00fcz bir rota olu\u015fturmad\u0131n\u0131z."}
             </Text>
           )}
-        </View>
+        </ProfileSection>
+
         <Pressable
-          style={styles.featureCard}
-          onPress={() =>
-            AsyncStorage.removeItem("token").then(() => router.push("/"))
-          }
+          style={styles.logoutButton}
+          onPress={() => logout().then(() => router.push("/"))}
         >
-          <Text style={styles.featureTitle}>Çıkış Yap</Text>
+          <Text style={styles.logoutButtonText}>
+            {"\u00c7\u0131k\u0131\u015f Yap"}
+          </Text>
         </Pressable>
       </ScrollView>
+
+      <VehicleEditModal
+        visible={isEditModalVisible}
+        brand={editBrand}
+        model={editModel}
+        year={editYear}
+        licensePlate={editLicensePlate}
+        inspectionAppointmentDate={editInspectionAppointmentDate}
+        imageUri={editImageUri}
+        isUpdating={isUpdating}
+        onBrandChange={setEditBrand}
+        onModelChange={setEditModel}
+        onYearChange={setEditYear}
+        onLicensePlateChange={setEditLicensePlate}
+        onInspectionAppointmentDateChange={setEditInspectionAppointmentDate}
+        onPickImage={pickVehicleImage}
+        onSave={handleUpdateVehicle}
+        onClose={() => setEditModalVisible(false)}
+      />
     </SafeAreaView>
   );
 }
 
-function PostRow({
-  image,
-  title,
-  time,
-  likes,
-  comments,
-}: {
-  image: ImageSourcePropType;
-  title: string;
-  time: string;
-  likes: string;
-  comments: string;
-}) {
-  return (
-    <View style={styles.postRow}>
-      <Image source={image} style={styles.postImage} />
-      <View style={styles.postTextBox}>
-        <Text style={styles.rowTitle}>{title}</Text>
-        <Text style={styles.rowDetail}>{time}</Text>
-      </View>
-      <Text style={styles.metricText}>{likes} ♡</Text>
-      <Text style={styles.metricText}>{comments} ▱</Text>
-    </View>
-  );
-}
-
-function RouteRow({
-  title,
-  detail,
-  duration,
-  distance,
-}: {
-  title: string;
-  detail: string;
-  duration: number;
-  distance: number;
-}) {
-  return (
-    <View style={styles.routeRow}>
-      <View style={styles.routeTextBox}>
-        <Text style={styles.rowTitle}>{title}</Text>
-        <Text style={styles.metricText}>
-          {duration} saat · {distance} km
-        </Text>
-        <Text style={styles.metricText}>{}</Text>
-        <Text style={styles.rowDetail}>{detail}</Text>
-      </View>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: "#17181a",
+  avatar: {
+    alignItems: "center",
+    backgroundColor: "#eeeeee",
+    borderColor: "#111213",
+    borderRadius: 8,
+    borderWidth: 2,
+    height: 84,
+    justifyContent: "center",
+    overflow: "hidden",
+    width: 84,
   },
-  scrollContent: {
-    backgroundColor: "#17181a",
-    paddingBottom: 18,
+  avatarImage: {
+    height: "100%",
+    width: "100%",
   },
-  coverWrap: {
-    height: 170,
+  avatarPressable: {
+    height: "100%",
+    width: "100%",
   },
   coverImage: {
     height: "100%",
     width: "100%",
+  },
+  coverPressable: {
+    flex: 1,
+  },
+  coverWrap: {
+    height: 170,
+  },
+  editButton: {
+    backgroundColor: "#56565c",
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+  },
+  editText: {
+    color: "#f5f5f5",
+    fontSize: 11,
+    fontWeight: "800",
+  },
+  emptyScreen: {
+    alignItems: "center",
+    backgroundColor: "#17181a",
+    flex: 1,
+    justifyContent: "center",
+  },
+  emptyScreenText: {
+    color: "white",
+  },
+  emptyText: {
+    color: "#a9a9ae",
+    marginBottom: 10,
+    marginLeft: 10,
+  },
+  followLabel: {
+    color: "#d5d5d8",
+    fontSize: 17,
+  },
+  followNumber: {
+    color: "#f3f3f3",
+    fontSize: 19,
+    fontWeight: "800",
+  },
+  followRow: {
+    alignItems: "center",
+    flexDirection: "row",
+  },
+  garageRow: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  identity: {
+    flex: 1,
+    marginLeft: 10,
+    marginTop: 28,
+  },
+  logoutButton: {
+    backgroundColor: "#ff0000",
+    borderRadius: 8,
+    marginHorizontal: 150,
+    marginVertical: 12,
+    padding: 14,
+  },
+  logoutButtonText: {
+    alignSelf: "center",
+    color: "#f2f2f2",
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  name: {
+    color: "#f0f0f1",
+    fontSize: 20,
+    fontWeight: "800",
+    marginRight: 10,
+  },
+  nameRow: {
+    alignItems: "center",
+    flexDirection: "row",
+  },
+  profileHeader: {
+    alignItems: "center",
+    flexDirection: "row",
+    marginTop: -44,
+    paddingBottom: 14,
+    paddingHorizontal: 30,
+  },
+  safeArea: {
+    backgroundColor: "#17181a",
+    flex: 1,
+  },
+  scrollContent: {
+    backgroundColor: "#17181a",
+    paddingBottom: 18,
   },
   settingsButton: {
     alignItems: "center",
@@ -432,173 +511,9 @@ const styles = StyleSheet.create({
     fontSize: 25,
     fontWeight: "800",
   },
-  profileHeader: {
-    alignItems: "center",
-    flexDirection: "row",
-    marginTop: -44,
-    paddingHorizontal: 30,
-    paddingBottom: 14,
-  },
-  avatar: {
-    alignItems: "center",
-    backgroundColor: "#eeeeee",
-    borderColor: "#111213",
-    borderRadius: 8,
-    borderWidth: 2,
-    height: 84,
-    justifyContent: "center",
-    overflow: "hidden",
-    width: 84,
-  },
-  avatarImage: {
-    height: "100%",
-    width: "100%",
-  },
-  identity: {
-    flex: 1,
-    marginLeft: 10,
-    marginTop: 28,
-  },
-  nameRow: {
-    alignItems: "center",
-    flexDirection: "row",
-  },
-  name: {
-    color: "#f0f0f1",
-    fontSize: 20,
-    fontWeight: "800",
-    marginRight: 10,
-  },
-  editButton: {
-    backgroundColor: "#56565c",
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-  },
-  editText: {
-    color: "#f5f5f5",
-    fontSize: 11,
-    fontWeight: "800",
-  },
   username: {
     color: "#a9a9ae",
     fontSize: 12,
     marginBottom: 2,
-  },
-  followRow: {
-    alignItems: "center",
-    flexDirection: "row",
-  },
-  followNumber: {
-    color: "#f3f3f3",
-    fontSize: 19,
-    fontWeight: "800",
-  },
-  followLabel: {
-    color: "#d5d5d8",
-    fontSize: 17,
-  },
-  card: {
-    backgroundColor: "#34353c",
-    borderRadius: 8,
-    marginHorizontal: 20,
-    marginBottom: 12,
-    paddingBottom: 14,
-    paddingHorizontal: 14,
-    paddingTop: 10,
-  },
-  cardHeader: {
-    alignItems: "center",
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 12,
-  },
-  cardTitle: {
-    color: "#f2f2f2",
-    fontSize: 17,
-    fontWeight: "800",
-  },
-  chevron: {
-    color: "#17181a",
-    fontSize: 30,
-    fontWeight: "800",
-    lineHeight: 30,
-  },
-  garageRow: {
-    flexDirection: "row",
-    gap: 12,
-  },
-  garageItem: {
-    flex: 1,
-  },
-  garageImage: {
-    borderRadius: 8,
-    height: 78,
-    width: "100%",
-  },
-  imageLabel: {
-    color: "#eeeeee",
-    fontSize: 12,
-    fontWeight: "800",
-    marginTop: -18,
-    paddingLeft: 10,
-  },
-  postRow: {
-    alignItems: "center",
-    flexDirection: "row",
-    marginBottom: 14,
-  },
-  postImage: {
-    borderRadius: 8,
-    height: 44,
-    width: 72,
-  },
-  postTextBox: {
-    flex: 1,
-    marginLeft: 10,
-  },
-  rowTitle: {
-    color: "#f0f0f1",
-    fontSize: 13,
-    fontWeight: "800",
-    marginBottom: 4,
-  },
-  rowDetail: {
-    color: "#c3c3c8",
-    fontSize: 12,
-    fontWeight: "700",
-  },
-  metricText: {
-    color: "#d1d1d5",
-    fontSize: 12,
-    fontWeight: "800",
-    marginLeft: 12,
-  },
-  routeRow: {
-    alignItems: "center",
-    flexDirection: "row",
-    marginBottom: 12,
-  },
-  routeImage: {
-    borderRadius: 8,
-    height: 50,
-    width: 76,
-  },
-  routeTextBox: {
-    flex: 1,
-    marginLeft: 12,
-  },
-  featureCard: {
-    backgroundColor: "#ff0000",
-    borderRadius: 8,
-    marginHorizontal: 150,
-    marginVertical: 12,
-    padding: 14,
-  },
-  featureTitle: {
-    color: "#f2f2f2",
-    fontSize: 14,
-    fontWeight: "800",
-    alignSelf: "center",
   },
 });

@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import api from '@/api';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Alert, Platform } from 'react-native';
+import { getAuthHeaders } from './authTokenService';
 
 /**
  * Evrensel Fotoğraf Yükleme Fonksiyonu
@@ -11,7 +11,6 @@ import { Alert, Platform } from 'react-native';
  */
 export const uploadImageToServer = async (imageUri: string, endpoint: string, photoName: string) => {
     try {
-        const token = await AsyncStorage.getItem("token");
         const formData = new FormData();
         
         // Mobil cihazlarda dosya yolunu (URI) düzeltmek için
@@ -29,8 +28,8 @@ export const uploadImageToServer = async (imageUri: string, endpoint: string, ph
             method: 'POST',
             body: formData,
             headers: {
-                Authorization: `Bearer ${token}`,
-            }
+                ...(await getAuthHeaders()),
+            },
         });
 
         const photoTypeTR = photoName === 'cover' ? 'Kapak' : 'Profil';
