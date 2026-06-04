@@ -1,135 +1,510 @@
+import { LoadingScreen } from "@/components/LoadingScreen";
+import { getFeedPosts } from "@/services/postService";
+import { getExploreRoutes } from "@/services/routeService";
+import { getExploreVehicles } from "@/services/vehicleService";
+import type { FeedPost, UserRoute, Vehicle } from "@/types/domain";
+import { getSecureImageUrl } from "@/utils/imageUrl";
+import { buildRouteMapParams } from "@/utils/routeMapParams";
+import { Image } from "expo-image";
+import { useFocusEffect, useRouter } from "expo-router";
+import type { ReactNode } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
-    Image,
-    SafeAreaView,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    View,
-  } from "react-native";
-  
-  const carImage = require("../assets/images/6.jpg");
-  const routeOne = require("../assets/images/9.png");
-  const routeTwo = require("../assets/images/10.png");
-  const postOne = require("../assets/images/5.jpg");
-  const postTwo = require("../assets/images/6.jpg");
-  const clubOne = require("../assets/images/33.jpg");
-  const clubTwo = require("../assets/images/21.jpg");
-  
-  export default function Explore() {
-    return (
-      <SafeAreaView style={styles.safeArea}>
-        <ScrollView contentContainerStyle={styles.content}>
-          <TextInput
-            placeholder="Ara rotalar, araçlar, yerler"
-            placeholderTextColor="#d8d8dc"
-            style={styles.search}
-          />
-  
-          <View style={styles.filterRow}>
-            <Text style={styles.filter}>Popüler</Text>
-            <Text style={styles.filter}>Yakınımda</Text>
-            <Text style={styles.filter}>Güncel</Text>
-          </View>
-  
-          <View style={styles.heroCard}>
-            <View style={styles.heroText}>
-              <Text style={styles.heroTitle}>Garajlar</Text>
-              <Text style={styles.heroSubtitle}>Uygulamadaki tüm garajlara ulaşın</Text>
+  SafeAreaView,
+  ScrollView,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
+
+const carFallback = require("../assets/images/6.jpg");
+const clubOne = require("../assets/images/33.jpg");
+const clubTwo = require("../assets/images/21.jpg");
+
+const TEXT = {
+  clubs: "Kul\u00fcpler",
+  clubText: "T\u00fcm BMW seven s\u00fcr\u00fcc\u00fcleri bir araya getiren topluluk.",
+  exploreError: "Ke\u015ffet verileri al\u0131namad\u0131.",
+  garages: "Garajlar",
+  noGarage: "Garaj bulunamad\u0131.",
+  noPost: "G\u00f6nderi bulunamad\u0131.",
+  noRoute: "Rota bulunamad\u0131.",
+  photoPost: "Foto\u011fraf g\u00f6nderisi",
+  posts: "G\u00f6nderiler",
+  routeDetailMissing: "Rota detay\u0131 yok",
+  routes: "Rotalar",
+  searchPlaceholder: "Ara rotalar, ara\u00e7lar, g\u00f6nderiler",
+  vehicles: "Ara\u00e7lar",
+};
+
+export default function Explore() {
+  const router = useRouter();
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [routes, setRoutes] = useState<UserRoute[]>([]);
+  const [posts, setPosts] = useState<FeedPost[]>([]);
+  const [search, setSearch] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState("");
+
+  const fetchExploreData = useCallback(async () => {
+    try {
+      setErrorMessage("");
+      const [vehicleData, routeData, postData] = await Promise.all([
+        getExploreVehicles(),
+        getExploreRoutes(),
+        getFeedPosts(),
+      ]);
+
+      setVehicles(vehicleData);
+      setRoutes(routeData);
+      setPosts(postData);
+      console.log("Explore data fetched:", {
+        vehicles: vehicleData,
+        routes: routeData,
+        posts: postData,
+      });
+    } catch (error) {
+      console.error("Explore fetch error:", error);
+      setErrorMessage(TEXT.exploreError);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      setLoading(true);
+      fetchExploreData();
+    }, [fetchExploreData]),
+  );
+
+  const normalizedSearch = search.trim().toLocaleLowerCase("tr-TR");
+
+  const visibleVehicles = useMemo(
+    () =>
+      vehicles
+        .filter((vehicle) =>
+          matchesSearch(
+            normalizedSearch,
+            vehicle.brand,
+            vehicle.model,
+            vehicle.licensePlate,
+            String(vehicle.year),
+          ),
+        )
+        .slice(0, 4),
+    [normalizedSearch, vehicles],
+  );
+
+  const visibleRoutes = useMemo(
+    () =>
+      routes
+        .filter((route) =>
+          matchesSearch(
+            normalizedSearch,
+            route.title,
+            route.detail,
+            `${route.distance}`,
+            `${route.duration}`,
+          ),
+        )
+        .slice(0, 4),
+    [normalizedSearch, routes],
+  );
+
+  const visiblePosts = useMemo(
+    () =>
+      posts
+        .filter((post) =>
+          matchesSearch(normalizedSearch, post.content, post.authorName),
+        )
+        .slice(0, 4),
+    [normalizedSearch, posts],
+  );
+
+  if (loading) {
+    return <LoadingScreen backgroundColor="#202124" color="#c47a2d" />;
+  }
+
+  return (
+    <SafeAreaView style={styles.safeArea}>
+      <ScrollView contentContainerStyle={styles.content}>
+        <Text style={styles.logo}>AutoTrack</Text>
+
+        <TextInput
+          placeholder={TEXT.searchPlaceholder}
+          placeholderTextColor="#d8d8dc"
+          style={styles.search}
+          value={search}
+          onChangeText={setSearch}
+        />
+
+        <View style={styles.filterRow}>
+          <Text style={styles.filter}>{`${TEXT.vehicles} ${vehicles.length}`}</Text>
+          <Text style={styles.filter}>{`${TEXT.routes} ${routes.length}`}</Text>
+          <Text style={styles.filter}>{`${TEXT.posts} ${posts.length}`}</Text>
+        </View>
+
+        {errorMessage ? (
+          <Text style={styles.errorText}>{errorMessage}</Text>
+        ) : null}
+
+        <ExploreSection title={TEXT.garages}>
+          {visibleVehicles.length > 0 ? (
+            <View style={styles.grid}>
+              {visibleVehicles.map((vehicle) => (
+                <VehicleCard key={vehicle.id} vehicle={vehicle} />
+              ))}
             </View>
-            <Image source={carImage} style={styles.heroImage} />
-            <Text style={styles.arrow}>›</Text>
-          </View>
-  
-          <Text style={styles.sectionTitle}>Rotalar</Text>
-          <View style={styles.twoColumn}>
-            <Image source={routeOne} style={styles.routeImage} />
-            <Image source={routeTwo} style={styles.routeImage} />
-          </View>
-  
-          <Text style={styles.sectionTitle}>Gönderiler</Text>
-          <View style={styles.twoColumn}>
-            <PostCard image={postOne} user="jamesgreen" />
-            <PostCard image={postTwo} user="noahhesler" />
-          </View>
-  
-          <Text style={styles.sectionTitle}>Kulüpler</Text>
-          <View style={styles.twoColumn}>
+          ) : (
+            <EmptyText text={TEXT.noGarage} />
+          )}
+        </ExploreSection>
+
+        <ExploreSection title={TEXT.routes}>
+          {visibleRoutes.length > 0 ? (
+            <View style={styles.grid}>
+              {visibleRoutes.map((route) => (
+                <RouteCard
+                  key={route.id}
+                  route={route}
+                  onPress={() =>
+                    router.push({
+                      pathname: "/route-map",
+                      params: buildRouteMapParams(route),
+                    })
+                  }
+                />
+              ))}
+            </View>
+          ) : (
+            <EmptyText text={TEXT.noRoute} />
+          )}
+        </ExploreSection>
+
+        <ExploreSection title={TEXT.posts}>
+          {visiblePosts.length > 0 ? (
+            <View style={styles.grid}>
+              {visiblePosts.map((post) => (
+                <PostCard key={post.id} post={post} />
+              ))}
+            </View>
+          ) : (
+            <EmptyText text={TEXT.noPost} />
+          )}
+        </ExploreSection>
+
+        <ExploreSection title={TEXT.clubs}>
+          <View style={styles.grid}>
             <ClubCard image={clubOne} title="BMW Addicts" />
             <ClubCard image={clubTwo} title="Vintage Collectors" />
           </View>
-        </ScrollView>
-      </SafeAreaView>
-    );
-  }
-  
-  function PostCard({ image, user }: { image: number; user: string }) {
-    return (
-      <View style={styles.postCard}>
-        <Text style={styles.user}>● {user}</Text>
-        <Image source={image} style={styles.postImage} />
+        </ExploreSection>
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+function matchesSearch(
+  search: string,
+  ...values: (number | string | null | undefined)[]
+) {
+  if (!search) return true;
+
+  return values.some((value) =>
+    String(value ?? "")
+      .toLocaleLowerCase("tr-TR")
+      .includes(search),
+  );
+}
+
+function ExploreSection({
+  title,
+  children,
+}: {
+  title: string;
+  children: ReactNode;
+}) {
+  return (
+    <View style={styles.section}>
+      <Text style={styles.sectionTitle}>{title}</Text>
+      {children}
+    </View>
+  );
+}
+
+function VehicleCard({ vehicle }: { vehicle: Vehicle }) {
+  const imageSource = vehicle.imageUrl
+    ? { uri: getSecureImageUrl(vehicle.imageUrl) }
+    : carFallback;
+
+  return (
+    <View style={styles.vehicleCard}>
+      <Image
+        source={imageSource}
+        style={styles.vehicleImage}
+        contentFit="cover"
+      />
+      <View style={styles.cardBody}>
+        <Text style={styles.cardTitle} numberOfLines={1}>
+          {vehicle.brand} {vehicle.model}
+        </Text>
+        <Text style={styles.cardMeta}>
+          {vehicle.year}
+          {vehicle.licensePlate ? `  ${vehicle.licensePlate}` : ""}
+        </Text>
       </View>
-    );
-  }
-  
-  function ClubCard({ image, title }: { image: number; title: string }) {
-    return (
-      <View style={styles.clubCard}>
-        <Image source={image} style={styles.clubImage} />
-        <Text style={styles.clubTitle}>{title}</Text>
-        <Text style={styles.clubText}>Tüm BMW seven sürücüleri bir araya getiren topluluk.</Text>
+    </View>
+  );
+}
+
+function RouteCard({
+  route,
+  onPress,
+}: {
+  route: UserRoute;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable style={styles.routeCard} onPress={onPress}>
+      <Text style={styles.routeBadge}>Rota</Text>
+      <Text style={styles.cardTitle} numberOfLines={2}>
+        {route.title}
+      </Text>
+      <Text style={styles.routeDetail} numberOfLines={2}>
+        {route.detail || TEXT.routeDetailMissing}
+      </Text>
+      <View style={styles.metricRow}>
+        <Text style={styles.metric}>{`${route.distance} km`}</Text>
+        <Text style={styles.metric}>{`${route.duration} saat`}</Text>
       </View>
-    );
-  }
-  
-  const styles = StyleSheet.create({
-    safeArea: { flex: 1, backgroundColor: "#202124" },
-    content: { padding: 24, paddingBottom: 32 },
-    search: {
-      backgroundColor: "#55565a",
-      borderRadius: 18,
-      color: "#fff",
-      height: 38,
-      paddingHorizontal: 14,
-    },
-    filterRow: { flexDirection: "row", gap: 14, marginTop: 12, marginBottom: 18 },
-    filter: {
-      backgroundColor: "#55565a",
-      borderRadius: 8,
-      color: "#f4f4f4",
-      fontSize: 13,
-      fontWeight: "800",
-      paddingHorizontal: 16,
-      paddingVertical: 6,
-    },
-    heroCard: {
-      backgroundColor: "#37383f",
-      borderRadius: 8,
-      flexDirection: "row",
-      minHeight: 128,
-      overflow: "hidden",
-      padding: 16,
-    },
-    heroText: { flex: 1, justifyContent: "center" },
-    heroTitle: { color: "#f4f4f6", fontSize: 28, fontWeight: "800" },
-    heroSubtitle: { color: "#d8d8dc", fontSize: 15, marginTop: 10 },
-    heroImage: { height: 76, width: 130, alignSelf: "center", borderRadius: 8 },
-    arrow: { color: "#151619", fontSize: 42, alignSelf: "flex-end" },
-    sectionTitle: {
-      color: "#f4f4f6",
-      fontSize: 24,
-      fontWeight: "800",
-      marginTop: 18,
-      marginBottom: 10,
-    },
-    twoColumn: { flexDirection: "row", gap: 18 },
-    routeImage: { flex: 1, height: 92, borderRadius: 8 },
-    postCard: { flex: 1 },
-    user: { color: "#f0f0f2", fontSize: 13, fontWeight: "800", marginBottom: -16, zIndex: 1, paddingLeft: 8 },
-    postImage: { height: 102, borderRadius: 8 },
-    clubCard: { backgroundColor: "#2f313a", borderRadius: 8, flex: 1, overflow: "hidden", paddingBottom: 12 },
-    clubImage: { height: 78, width: "100%" },
-    clubTitle: { color: "#f1f1f2", fontSize: 19, fontWeight: "800", paddingHorizontal: 10, marginTop: 8 },
-    clubText: { color: "#d1d1d5", fontSize: 12, lineHeight: 18, paddingHorizontal: 10, marginTop: 8 },
-  });
-  
+    </Pressable>
+  );
+}
+
+function PostCard({ post }: { post: FeedPost }) {
+  const imageSource = post.postPhoto
+    ? { uri: getSecureImageUrl(post.postPhoto) }
+    : null;
+
+  return (
+    <View style={styles.postCard}>
+      <Text style={styles.user} numberOfLines={1}>
+        @{post.authorName}
+      </Text>
+      {imageSource ? (
+        <Image
+          source={imageSource}
+          style={styles.postImage}
+          contentFit="cover"
+        />
+      ) : (
+        <View style={styles.textPostBody}>
+          <Text style={styles.textPostContent} numberOfLines={5}>
+            {post.content || TEXT.photoPost}
+          </Text>
+        </View>
+      )}
+      {post.content ? (
+        <Text style={styles.postCaption} numberOfLines={2}>
+          {post.content}
+        </Text>
+      ) : null}
+    </View>
+  );
+}
+
+function ClubCard({ image, title }: { image: number; title: string }) {
+  return (
+    <View style={styles.clubCard}>
+      <Image source={image} style={styles.clubImage} contentFit="cover" />
+      <Text style={styles.clubTitle}>{title}</Text>
+      <Text style={styles.clubText}>
+        {TEXT.clubText}
+      </Text>
+    </View>
+  );
+}
+
+function EmptyText({ text }: { text: string }) {
+  return <Text style={styles.emptyText}>{text}</Text>;
+}
+
+const styles = StyleSheet.create({
+  cardBody: {
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+  },
+  cardMeta: {
+    color: "#c7c7cc",
+    fontSize: 12,
+    fontWeight: "700",
+    marginTop: 4,
+  },
+  cardTitle: {
+    color: "#f4f4f6",
+    fontSize: 15,
+    fontWeight: "800",
+  },
+  clubCard: {
+    backgroundColor: "#2f313a",
+    borderRadius: 8,
+    flexBasis: "47%",
+    overflow: "hidden",
+    paddingBottom: 12,
+  },
+  clubImage: {
+    height: 78,
+    width: "100%",
+  },
+  clubText: {
+    color: "#d1d1d5",
+    fontSize: 12,
+    lineHeight: 18,
+    marginTop: 8,
+    paddingHorizontal: 10,
+  },
+  clubTitle: {
+    color: "#f1f1f2",
+    fontSize: 17,
+    fontWeight: "800",
+    marginTop: 8,
+    paddingHorizontal: 10,
+  },
+  content: {
+    padding: 24,
+    paddingBottom: 32,
+  },
+  emptyText: {
+    color: "#a9a9ae",
+    fontSize: 13,
+    paddingVertical: 8,
+  },
+  errorText: {
+    color: "#ffb4a2",
+    fontSize: 13,
+    marginBottom: 6,
+  },
+  filter: {
+    backgroundColor: "#55565a",
+    borderRadius: 8,
+    color: "#f4f4f4",
+    fontSize: 12,
+    fontWeight: "800",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  filterRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+    marginBottom: 6,
+    marginTop: 12,
+  },
+  grid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 14,
+  },
+  logo: {
+    color: "#c47a2d",
+    fontSize: 20,
+    fontWeight: "800",
+    marginBottom: 14,
+    textAlign: "center",
+  },
+  metric: {
+    color: "#f4f4f6",
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  metricRow: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 14,
+  },
+  postCaption: {
+    color: "#d8d8dc",
+    fontSize: 12,
+    lineHeight: 17,
+    marginTop: 7,
+  },
+  postCard: {
+    flexBasis: "47%",
+  },
+  postImage: {
+    borderRadius: 8,
+    height: 118,
+    width: "100%",
+  },
+  routeBadge: {
+    color: "#c47a2d",
+    fontSize: 11,
+    fontWeight: "900",
+    marginBottom: 8,
+    textTransform: "uppercase",
+  },
+  routeCard: {
+    backgroundColor: "#2f313a",
+    borderRadius: 8,
+    flexBasis: "47%",
+    minHeight: 138,
+    padding: 12,
+  },
+  routeDetail: {
+    color: "#c7c7cc",
+    fontSize: 12,
+    lineHeight: 17,
+    marginTop: 8,
+  },
+  safeArea: {
+    backgroundColor: "#202124",
+    flex: 1,
+  },
+  search: {
+    backgroundColor: "#55565a",
+    borderRadius: 18,
+    color: "#fff",
+    height: 40,
+    paddingHorizontal: 14,
+  },
+  section: {
+    marginTop: 18,
+  },
+  sectionTitle: {
+    color: "#f4f4f6",
+    fontSize: 23,
+    fontWeight: "800",
+    marginBottom: 10,
+  },
+  textPostBody: {
+    backgroundColor: "#2f313a",
+    borderRadius: 8,
+    minHeight: 118,
+    padding: 12,
+  },
+  textPostContent: {
+    color: "#f4f4f6",
+    fontSize: 13,
+    fontWeight: "700",
+    lineHeight: 18,
+  },
+  user: {
+    color: "#f0f0f2",
+    fontSize: 13,
+    fontWeight: "800",
+    marginBottom: 6,
+  },
+  vehicleCard: {
+    backgroundColor: "#2f313a",
+    borderRadius: 8,
+    flexBasis: "47%",
+    overflow: "hidden",
+  },
+  vehicleImage: {
+    height: 104,
+    width: "100%",
+  },
+});

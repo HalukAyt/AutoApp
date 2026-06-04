@@ -3,7 +3,8 @@ import { LoadingScreen } from "@/components/LoadingScreen";
 import { getFeedPosts } from "@/services/postService";
 import type { FeedPost } from "@/types/domain";
 import { Image } from "expo-image";
-import { useEffect, useState } from "react";
+import { useFocusEffect } from "expo-router";
+import { useCallback, useState } from "react";
 import { SafeAreaView, ScrollView, StyleSheet, Text, View } from "react-native";
 
 const defaultAvatar = require("../assets/images/3.jpg");
@@ -19,20 +20,23 @@ export default function Feed() {
   const [posts, setPosts] = useState<FeedPost[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchFeed = async () => {
-      try {
-        const feedPosts = await getFeedPosts();
-        setPosts(feedPosts);
-      } catch (error) {
-        console.error("Feed fetch error:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchFeed();
+  const fetchFeed = useCallback(async () => {
+    try {
+      const feedPosts = await getFeedPosts();
+      setPosts(feedPosts);
+    } catch (error) {
+      console.error("Feed fetch error:", error);
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      setLoading(true);
+      fetchFeed();
+    }, [fetchFeed]),
+  );
 
   if (loading) {
     return <LoadingScreen backgroundColor="#202124" color="#c47a2d" />;

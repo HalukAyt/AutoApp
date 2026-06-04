@@ -22,6 +22,12 @@ export interface UserRoute {
   id: number;
   title: string;
   detail: string;
+  startPoint?: string | null;
+  endPoint?: string | null;
+  startLatitude?: number | null;
+  startLongitude?: number | null;
+  endLatitude?: number | null;
+  endLongitude?: number | null;
   duration: number;
   distance: number;
 }

@@ -1,6 +1,6 @@
 import { Image } from "expo-image";
 import type { ImageSourcePropType } from "react-native";
-import { StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 
 interface ProfilePostRowProps {
   image: ImageSourcePropType;
@@ -8,6 +8,8 @@ interface ProfilePostRowProps {
   time: string;
   likes: string;
   comments: string;
+  onDelete?: () => void;
+  onEdit?: () => void;
 }
 
 export function ProfilePostRow({
@@ -16,6 +18,8 @@ export function ProfilePostRow({
   time,
   likes,
   comments,
+  onDelete,
+  onEdit,
 }: ProfilePostRowProps) {
   return (
     <View style={styles.postRow}>
@@ -26,11 +30,39 @@ export function ProfilePostRow({
       </View>
       <Text style={styles.metricText}>{likes} {"\u2661"}</Text>
       <Text style={styles.metricText}>{comments} {"\u25b1"}</Text>
+      <View style={styles.actionGroup}>
+        <Pressable style={styles.actionButton} onPress={onEdit}>
+          <Text style={styles.actionText}>{"D\u00fczenle"}</Text>
+        </Pressable>
+        <Pressable style={[styles.actionButton, styles.deleteButton]} onPress={onDelete}>
+          <Text style={styles.actionText}>{"Sil"}</Text>
+        </Pressable>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  actionButton: {
+    alignItems: "center",
+    backgroundColor: "#4b4c52",
+    borderRadius: 8,
+    minWidth: 58,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+  },
+  actionGroup: {
+    gap: 6,
+    marginLeft: 10,
+  },
+  actionText: {
+    color: "#f4f4f6",
+    fontSize: 10,
+    fontWeight: "900",
+  },
+  deleteButton: {
+    backgroundColor: "#8d3838",
+  },
   metricText: {
     color: "#d1d1d5",
     fontSize: 12,
