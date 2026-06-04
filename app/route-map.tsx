@@ -26,6 +26,8 @@ const DEFAULT_REGION: Region = {
   longitudeDelta: 0.4,
 };
 
+const DIRECTIONS_API_URL = "https://router.project-osrm.org/route/v1/driving";
+
 const TEXT = {
   destination: "Biti\u015f",
   distance: "Mesafe",
@@ -35,6 +37,8 @@ const TEXT = {
   notFound:
     "Rota haritada bulunamad\u0131. Ba\u015flang\u0131\u00e7 ve biti\u015f alanlar\u0131n\u0131 daha net yazmay\u0131 deneyin.",
   placing: "Rota haritaya yerle\u015ftiriliyor...",
+  roadRouteFailed:
+    "S\u00fcr\u00fc\u015f rotas\u0131 al\u0131namad\u0131. Noktalar\u0131 g\u00f6steriyorum.",
   route: "Rota",
   start: "Ba\u015flang\u0131\u00e7",
 };
@@ -50,6 +54,24 @@ type RouteMapParams = {
   startLongitude?: string | string[];
   startPoint?: string | string[];
   title?: string | string[];
+};
+
+type DrivingRoute = {
+  coordinates: LatLng[];
+  distanceMeters: number | null;
+  durationSeconds: number | null;
+};
+
+type OsrmRouteResponse = {
+  code?: string;
+  message?: string;
+  routes?: {
+    distance?: number;
+    duration?: number;
+    geometry?: {
+      coordinates?: [number, number][];
+    };
+  }[];
 };
 
 export default function RouteMap() {
@@ -79,7 +101,10 @@ export default function RouteMap() {
     startPoint || endPoint || startCoordinate || endCoordinate,
   );
 
-  const [coordinates, setCoordinates] = useState<LatLng[]>([]);
+  const [markerCoordinates, setMarkerCoordinates] = useState<LatLng[]>([]);
+  const [routeCoordinates, setRouteCoordinates] = useState<LatLng[]>([]);
+  const [routeDistance, setRouteDistance] = useState("");
+  const [routeDuration, setRouteDuration] = useState("");
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
 
@@ -88,68 +113,85 @@ export default function RouteMap() {
     return detail || startPoint || endPoint || TEXT.noPoint;
   }, [detail, endPoint, startPoint]);
 
-  const geocodeRoute = useCallback(async () => {
-    if (startCoordinate || endCoordinate) {
-      setCoordinates(
-        [startCoordinate, endCoordinate].filter(Boolean) as LatLng[],
-      );
+  const visibleCoordinates = useMemo(
+    () => (routeCoordinates.length > 1 ? routeCoordinates : markerCoordinates),
+    [markerCoordinates, routeCoordinates],
+  );
+
+  const loadDrivingRoute = useCallback(async (points: LatLng[]) => {
+    setMarkerCoordinates(points);
+    setRouteCoordinates([]);
+    setRouteDistance("");
+    setRouteDuration("");
+
+    if (points.length < 2) {
+      return;
+    }
+
+    try {
+      const drivingRoute = await fetchDrivingRoute(points[0], points[1]);
+      setRouteCoordinates(drivingRoute.coordinates);
+      setRouteDistance(formatDistance(drivingRoute.distanceMeters));
+      setRouteDuration(formatDuration(drivingRoute.durationSeconds));
       setErrorMessage("");
-      setLoading(false);
-      return;
+    } catch (error) {
+      console.error("Driving route fetch error:", error);
+      setErrorMessage(TEXT.roadRouteFailed);
     }
+  }, []);
 
-    const pointsToFind = [startPoint, endPoint].filter(Boolean) as string[];
-
-    if (pointsToFind.length === 0) {
-      setCoordinates([]);
-      setErrorMessage(TEXT.missingPoint);
-      setLoading(false);
-      return;
-    }
-
+  const loadRoute = useCallback(async () => {
     setLoading(true);
     setErrorMessage("");
 
     try {
-      const resolvedCoordinates = await Promise.all(
-        pointsToFind.map(async (point) => {
-          const [result] = await Location.geocodeAsync(point);
+      const [resolvedStart, resolvedEnd] = await Promise.all([
+        resolveRoutePoint(startCoordinate, startPoint),
+        resolveRoutePoint(endCoordinate, endPoint),
+      ]);
+      const resolvedCoordinates = [resolvedStart, resolvedEnd].filter(
+        Boolean,
+      ) as LatLng[];
 
-          if (!result) {
-            throw new Error(`${point} bulunamadi`);
-          }
+      if (resolvedCoordinates.length === 0) {
+        setMarkerCoordinates([]);
+        setRouteCoordinates([]);
+        setRouteDistance("");
+        setRouteDuration("");
+        setErrorMessage(TEXT.missingPoint);
+        return;
+      }
 
-          return {
-            latitude: result.latitude,
-            longitude: result.longitude,
-          };
-        }),
-      );
-
-      setCoordinates(resolvedCoordinates);
+      await loadDrivingRoute(resolvedCoordinates);
     } catch (error) {
       console.error("Route geocode error:", error);
-      setCoordinates([]);
+      setMarkerCoordinates([]);
+      setRouteCoordinates([]);
+      setRouteDistance("");
+      setRouteDuration("");
       setErrorMessage(TEXT.notFound);
     } finally {
       setLoading(false);
     }
-  }, [endCoordinate, endPoint, startCoordinate, startPoint]);
+  }, [endCoordinate, endPoint, loadDrivingRoute, startCoordinate, startPoint]);
 
   useEffect(() => {
-    geocodeRoute();
-  }, [geocodeRoute]);
+    loadRoute();
+  }, [loadRoute]);
 
   useEffect(() => {
-    if (coordinates.length === 0) return;
+    if (visibleCoordinates.length === 0) return;
 
     requestAnimationFrame(() => {
-      if (coordinates.length === 1) {
-        mapRef.current?.animateToRegion(getRegionForCoordinates(coordinates), 300);
+      if (visibleCoordinates.length === 1) {
+        mapRef.current?.animateToRegion(
+          getRegionForCoordinates(visibleCoordinates),
+          300,
+        );
         return;
       }
 
-      mapRef.current?.fitToCoordinates(coordinates, {
+      mapRef.current?.fitToCoordinates(visibleCoordinates, {
         animated: false,
         edgePadding: {
           bottom: 120,
@@ -159,7 +201,7 @@ export default function RouteMap() {
         },
       });
     });
-  }, [coordinates]);
+  }, [visibleCoordinates]);
 
   const openNativeMaps = async () => {
     const startValue = startCoordinate
@@ -169,14 +211,14 @@ export default function RouteMap() {
     const encodedStart = encodeURIComponent(startValue);
     const encodedEnd = encodeURIComponent(endValue);
     const encodedQuery = encodeURIComponent(endValue || startValue);
+    const hasDirections = Boolean(startValue && endValue);
     let url = `https://www.google.com/maps/search/?api=1&query=${encodedQuery}`;
 
     if (Platform.OS === "ios") {
-      url =
-        startPoint && endPoint
-          ? `http://maps.apple.com/?saddr=${encodedStart}&daddr=${encodedEnd}`
-          : `http://maps.apple.com/?q=${encodedQuery}`;
-    } else if (startPoint && endPoint) {
+      url = hasDirections
+        ? `http://maps.apple.com/?saddr=${encodedStart}&daddr=${encodedEnd}`
+        : `http://maps.apple.com/?q=${encodedQuery}`;
+    } else if (hasDirections) {
       url = `https://www.google.com/maps/dir/?api=1&origin=${encodedStart}&destination=${encodedEnd}&travelmode=driving`;
     }
 
@@ -186,16 +228,19 @@ export default function RouteMap() {
   return (
     <View style={styles.screen}>
       <MapView ref={mapRef} style={styles.map} initialRegion={DEFAULT_REGION}>
-        {coordinates[0] ? (
-          <Marker coordinate={coordinates[0]} title={TEXT.start} description={startPoint} />
+        {markerCoordinates[0] ? (
+          <Marker coordinate={markerCoordinates[0]} title={TEXT.start} description={startPoint} />
         ) : null}
-        {coordinates[1] ? (
-          <Marker coordinate={coordinates[1]} title={TEXT.destination} description={endPoint} />
+        {markerCoordinates[1] ? (
+          <Marker
+            coordinate={markerCoordinates[1]}
+            title={TEXT.destination}
+            description={endPoint}
+          />
         ) : null}
-        {coordinates.length > 1 ? (
+        {routeCoordinates.length > 1 ? (
           <Polyline
-            coordinates={coordinates}
-            geodesic
+            coordinates={routeCoordinates}
             strokeColor="#c47a2d"
             strokeWidth={5}
           />
@@ -237,8 +282,14 @@ export default function RouteMap() {
         ) : null}
 
         <View style={styles.bottomBar}>
-          <Metric label={TEXT.distance} value={distance ? `${distance} km` : "-"} />
-          <Metric label={TEXT.duration} value={duration ? `${duration} saat` : "-"} />
+          <Metric
+            label={TEXT.distance}
+            value={routeDistance || (distance ? `${distance} km` : "-")}
+          />
+          <Metric
+            label={TEXT.duration}
+            value={routeDuration || (duration ? `${duration} saat` : "-")}
+          />
         </View>
       </SafeAreaView>
     </View>
@@ -262,6 +313,92 @@ function readCoordinate(latitudeValue: string, longitudeValue: string) {
 
 function formatCoordinateForUrl(coordinate: LatLng) {
   return `${coordinate.latitude},${coordinate.longitude}`;
+}
+
+async function resolveRoutePoint(coordinate: LatLng | null, point: string) {
+  if (coordinate) return coordinate;
+  if (!point) return null;
+
+  const [result] = await Location.geocodeAsync(point);
+
+  if (!result) {
+    throw new Error(`${point} bulunamadi`);
+  }
+
+  return {
+    latitude: result.latitude,
+    longitude: result.longitude,
+  };
+}
+
+async function fetchDrivingRoute(
+  start: LatLng,
+  end: LatLng,
+): Promise<DrivingRoute> {
+  const url = `${DIRECTIONS_API_URL}/${start.longitude},${start.latitude};${end.longitude},${end.latitude}?overview=full&geometries=geojson&steps=false`;
+  const response = await fetch(url);
+
+  if (!response.ok) {
+    throw new Error(`Directions request failed: ${response.status}`);
+  }
+
+  const data = (await response.json()) as OsrmRouteResponse;
+  const route = data.routes?.[0];
+
+  if (!route) {
+    throw new Error(data.message || "Driving route not found");
+  }
+
+  const coordinates =
+    route.geometry?.coordinates
+      ?.map(([longitude, latitude]) => ({ latitude, longitude }))
+      .filter(isValidCoordinate) ?? [];
+
+  if (coordinates.length < 2) {
+    throw new Error(data.message || "Driving route geometry not found");
+  }
+
+  return {
+    coordinates,
+    distanceMeters: typeof route.distance === "number" ? route.distance : null,
+    durationSeconds: typeof route.duration === "number" ? route.duration : null,
+  };
+}
+
+function isValidCoordinate(coordinate: LatLng) {
+  return (
+    Number.isFinite(coordinate.latitude) &&
+    Number.isFinite(coordinate.longitude)
+  );
+}
+
+function formatDistance(meters: number | null) {
+  if (meters === null) return "";
+
+  if (meters < 1000) {
+    return `${Math.round(meters)} m`;
+  }
+
+  return `${(meters / 1000).toLocaleString("tr-TR", {
+    maximumFractionDigits: 1,
+  })} km`;
+}
+
+function formatDuration(seconds: number | null) {
+  if (seconds === null) return "";
+
+  const minutes = Math.max(1, Math.round(seconds / 60));
+
+  if (minutes < 60) {
+    return `${minutes} dk`;
+  }
+
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+
+  return remainingMinutes
+    ? `${hours} sa ${remainingMinutes} dk`
+    : `${hours} sa`;
 }
 
 function getRegionForCoordinates(coordinates: LatLng[]): Region {
