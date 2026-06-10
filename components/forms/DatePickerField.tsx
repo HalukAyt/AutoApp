@@ -43,7 +43,7 @@ export function DatePickerField({
   value,
   onChange,
   optional,
-  placeholder = "Tarih seç",
+  placeholder = "Tarih se\u00e7",
   iosDisplay = "inline",
 }: DatePickerFieldProps) {
   const [isPickerVisible, setPickerVisible] = useState(false);
@@ -78,7 +78,7 @@ export function DatePickerField({
         <Text style={[styles.fieldText, !value && styles.placeholderText]}>
           {formatDisplayDate(value, placeholder)}
         </Text>
-        <Text style={styles.actionText}>{value ? "Değiştir" : "Seç"}</Text>
+        <Text style={styles.actionText}>{value ? "De\u011fi\u015ftir" : "Se\u00e7"}</Text>
       </Pressable>
 
       {isPickerVisible ? (

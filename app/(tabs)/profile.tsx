@@ -9,7 +9,7 @@ import { createPost, deletePost, updatePost } from "@/services/postService";
 import { getProfile } from "@/services/profileService";
 import { createRoute, deleteRoute, updateRoute } from "@/services/routeService";
 import { uploadImageToServer } from "@/services/userProfileService";
-import { updateVehicle } from "@/services/vehicleService";
+import { addVehicleExpense, updateVehicle } from "@/services/vehicleService";
 import type { ProfilePost, UserProfile, UserRoute, Vehicle } from "@/types/domain";
 import { getSecureImageUrl } from "@/utils/imageUrl";
 import { buildRouteMapParams } from "@/utils/routeMapParams";
@@ -61,6 +61,9 @@ export default function Profile() {
   const [editInspectionAppointmentDate, setEditInspectionAppointmentDate] =
     useState("");
   const [editImageUri, setEditImageUri] = useState<string | null>(null);
+  const [expenseCategory, setExpenseCategory] = useState("");
+  const [expenseAmount, setExpenseAmount] = useState("");
+  const [isAddingExpense, setIsAddingExpense] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [isPostModalVisible, setPostModalVisible] = useState(false);
   const [editingPostId, setEditingPostId] = useState<number | null>(null);
@@ -199,6 +202,8 @@ export default function Profile() {
     setEditLicensePlate(vehicle.licensePlate || "");
     setEditInspectionAppointmentDate(vehicle.inspectionAppointmentDate || "");
     setEditImageUri(null);
+    setExpenseCategory("");
+    setExpenseAmount("");
     setEditModalVisible(true);
   };
 
@@ -515,6 +520,33 @@ export default function Profile() {
     ]);
   };
 
+
+  const handleAddExpense = async () => {
+    if (!editingVehicleId) return;
+
+    const parsedAmount = Number(expenseAmount.replace(",", "."));
+    if (!expenseCategory.trim() || Number.isNaN(parsedAmount) || parsedAmount <= 0) {
+      Alert.alert("Uyar\u0131", "Masraf t\u00fcr\u00fc ve ge\u00e7erli tutar girin.");
+      return;
+    }
+
+    setIsAddingExpense(true);
+    try {
+      await addVehicleExpense(editingVehicleId, {
+        category: expenseCategory.trim(),
+        amount: parsedAmount,
+      });
+      setExpenseCategory("");
+      setExpenseAmount("");
+      await fetchProfileData();
+      Alert.alert("Ba\u015far\u0131l\u0131", "Masraf eklendi.");
+    } catch (error) {
+      console.error("Expense add error:", error);
+      Alert.alert("Hata", "Masraf eklenemedi.");
+    } finally {
+      setIsAddingExpense(false);
+    }
+  };
   const handleUpdateVehicle = async () => {
     if (!editingVehicleId) return;
 
@@ -930,13 +962,19 @@ export default function Profile() {
         inspectionAppointmentDate={editInspectionAppointmentDate}
         imageUri={editImageUri}
         isUpdating={isUpdating}
+        expenseCategory={expenseCategory}
+        expenseAmount={expenseAmount}
+        isAddingExpense={isAddingExpense}
         onBrandChange={setEditBrand}
         onModelChange={setEditModel}
         onYearChange={setEditYear}
         onLicensePlateChange={setEditLicensePlate}
         onInspectionAppointmentDateChange={setEditInspectionAppointmentDate}
+        onExpenseCategoryChange={setExpenseCategory}
+        onExpenseAmountChange={setExpenseAmount}
         onPickImage={pickVehicleImage}
         onSave={handleUpdateVehicle}
+        onAddExpense={handleAddExpense}
         onClose={() => setEditModalVisible(false)}
       />
     </SafeAreaView>

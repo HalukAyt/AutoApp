@@ -15,6 +15,12 @@ export interface AddVehicleRequest {
   imageUri?: string | null;
 }
 
+export interface AddVehicleExpenseRequest {
+  category: string;
+  amount: number;
+  date?: string;
+}
+
 export interface UpdateVehicleRequest {
   brand: string;
   model: string;
@@ -116,6 +122,14 @@ export const addVehicle = async (payload: AddVehicleRequest) => {
   return submitVehicleForm<string>("/vehicle/add", "POST", formData);
 };
 
+export const addVehicleExpense = async (
+  vehicleId: number,
+  payload: AddVehicleExpenseRequest,
+) => {
+  await api().post(`/vehicle/${vehicleId}/expenses`, payload, {
+    headers: await getAuthHeaders(),
+  });
+};
 export const updateVehicle = async (
   vehicleId: number,
   payload: UpdateVehicleRequest,

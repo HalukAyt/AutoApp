@@ -124,7 +124,7 @@ export function FeedPostCard({ post, defaultAvatar }: FeedPostCardProps) {
       </View>
 
       <Text style={styles.caption}>
-        <Text style={styles.username}>{post.authorUsername}</Text>{" "}
+        <Text style={styles.username}>{post.authorName}</Text>{" "}
         {post.content}
       </Text>
       <Text style={styles.time}>{post.time}</Text>
@@ -151,7 +151,7 @@ export function FeedPostCard({ post, defaultAvatar }: FeedPostCardProps) {
                 />
                 <View style={styles.commentTextBubble}>
                   <Text style={styles.commentUsername}>
-                    {item.authorUsername}
+                    {post.authorName}
                   </Text>
                   <Text style={styles.commentContentText}>{item.content}</Text>
                 </View>

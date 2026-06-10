@@ -1,13 +1,29 @@
 import { DatePickerField } from "@/components/forms/DatePickerField";
+import { useState } from "react";
 import {
   ActivityIndicator,
   Modal,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
+
+const EXPENSE_CATEGORIES = [
+  "Zorunlu Trafik Sigortası",
+  "Kasko",
+  "Motorlu Taşıtlar Vergisi (MTV)",
+  "Periyodik Bakım",
+  "Araç Muayenesi",
+  "Ağır Bakım",
+  "Lastik Değişimi",
+  "Yakıt Gideri",
+  "Otoyol ve Köprü",
+  "Park Ücreti",
+  "Temizlik ve Kozmetik",
+];
 
 interface VehicleEditModalProps {
   visible: boolean;
@@ -18,13 +34,19 @@ interface VehicleEditModalProps {
   inspectionAppointmentDate: string;
   imageUri: string | null;
   isUpdating: boolean;
+  expenseCategory: string;
+  expenseAmount: string;
+  isAddingExpense: boolean;
   onBrandChange: (value: string) => void;
   onModelChange: (value: string) => void;
   onYearChange: (value: string) => void;
   onLicensePlateChange: (value: string) => void;
   onInspectionAppointmentDateChange: (value: string) => void;
+  onExpenseCategoryChange: (value: string) => void;
+  onExpenseAmountChange: (value: string) => void;
   onPickImage: () => void;
   onSave: () => void;
+  onAddExpense: () => void;
   onClose: () => void;
 }
 
@@ -37,87 +59,156 @@ export function VehicleEditModal({
   inspectionAppointmentDate,
   imageUri,
   isUpdating,
+  expenseCategory,
+  expenseAmount,
+  isAddingExpense,
   onBrandChange,
   onModelChange,
   onYearChange,
   onLicensePlateChange,
   onInspectionAppointmentDateChange,
+  onExpenseCategoryChange,
+  onExpenseAmountChange,
   onPickImage,
   onSave,
+  onAddExpense,
   onClose,
 }: VehicleEditModalProps) {
+  const [isCategoryOpen, setCategoryOpen] = useState(false);
+
+  const selectCategory = (category: string) => {
+    onExpenseCategoryChange(category);
+    setCategoryOpen(false);
+  };
+
   return (
     <Modal visible={visible} animationType="slide" transparent>
       <View style={styles.modalOverlay}>
         <View style={styles.modalContent}>
-          <Text style={styles.modalTitle}>{"Arac\u0131 D\u00fczenle"}</Text>
+          <ScrollView showsVerticalScrollIndicator={false}>
+            <Text style={styles.modalTitle}>{"Aracı Düzenle"}</Text>
 
-          <TouchableOpacity style={styles.imagePickerBtn} onPress={onPickImage}>
-            <Text style={styles.imagePickerText}>
-              {imageUri
-                ? "Yeni Resim Se\u00e7ildi (De\u011fi\u015ftir)"
-                : "Ara\u00e7 Resmi Se\u00e7"}
-            </Text>
-          </TouchableOpacity>
-
-          <TextInput
-            style={styles.input}
-            placeholder={"Marka (\u00d6rn: Toyota)"}
-            placeholderTextColor="#999"
-            value={brand}
-            onChangeText={onBrandChange}
-          />
-          <TextInput
-            style={styles.input}
-            placeholder={"Model (\u00d6rn: Corolla)"}
-            placeholderTextColor="#999"
-            value={model}
-            onChangeText={onModelChange}
-          />
-          <TextInput
-            style={styles.input}
-            placeholder={"Y\u0131l (\u00d6rn: 2022)"}
-            placeholderTextColor="#999"
-            keyboardType="numeric"
-            value={year}
-            onChangeText={onYearChange}
-          />
-          <TextInput
-            style={styles.input}
-            placeholder="Plaka (Opsiyonel)"
-            placeholderTextColor="#999"
-            value={licensePlate}
-            onChangeText={onLicensePlateChange}
-          />
-          <DatePickerField
-            label="Muayene Randevu Tarihi"
-            value={inspectionAppointmentDate}
-            onChange={onInspectionAppointmentDateChange}
-            optional
-            iosDisplay="compact"
-          />
-
-          <View style={styles.modalActions}>
-            <TouchableOpacity
-              style={[styles.modalBtn, styles.cancelButton]}
-              onPress={onClose}
-              disabled={isUpdating}
-            >
-              <Text style={styles.modalBtnText}>{"\u0130ptal"}</Text>
+            <TouchableOpacity style={styles.imagePickerBtn} onPress={onPickImage}>
+              <Text style={styles.imagePickerText}>
+                {imageUri ? "Yeni Resim Seçildi (Değiştir)" : "Araç Resmi Seç"}
+              </Text>
             </TouchableOpacity>
 
-            <TouchableOpacity
-              style={[styles.modalBtn, styles.saveButton]}
-              onPress={onSave}
-              disabled={isUpdating}
-            >
-              {isUpdating ? (
-                <ActivityIndicator color="white" />
-              ) : (
-                <Text style={styles.modalBtnText}>Kaydet</Text>
-              )}
-            </TouchableOpacity>
-          </View>
+            <TextInput
+              style={styles.input}
+              placeholder={"Marka (Örn: Toyota)"}
+              placeholderTextColor="#999"
+              value={brand}
+              onChangeText={onBrandChange}
+            />
+            <TextInput
+              style={styles.input}
+              placeholder={"Model (Örn: Corolla)"}
+              placeholderTextColor="#999"
+              value={model}
+              onChangeText={onModelChange}
+            />
+            <TextInput
+              style={styles.input}
+              placeholder={"Yıl (Örn: 2022)"}
+              placeholderTextColor="#999"
+              keyboardType="numeric"
+              value={year}
+              onChangeText={onYearChange}
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="Plaka (Opsiyonel)"
+              placeholderTextColor="#999"
+              value={licensePlate}
+              onChangeText={onLicensePlateChange}
+            />
+            <DatePickerField
+              label="Muayene Randevu Tarihi"
+              value={inspectionAppointmentDate}
+              onChange={onInspectionAppointmentDateChange}
+              optional
+              iosDisplay="compact"
+            />
+
+            <View style={styles.expenseBox}>
+              <Text style={styles.expenseTitle}>{"Masraf Ekle"}</Text>
+              <TouchableOpacity
+                style={styles.dropdownButton}
+                onPress={() => setCategoryOpen((current) => !current)}
+              >
+                <Text
+                  style={[
+                    styles.dropdownButtonText,
+                    !expenseCategory && styles.dropdownPlaceholder,
+                  ]}
+                  numberOfLines={2}
+                >
+                  {expenseCategory || "Masraf türü seç"}
+                </Text>
+                <Text style={styles.dropdownChevron}>{isCategoryOpen ? "⌃" : "⌄"}</Text>
+              </TouchableOpacity>
+
+              {isCategoryOpen ? (
+                <View style={styles.dropdownList}>
+                  {EXPENSE_CATEGORIES.map((category) => (
+                    <TouchableOpacity
+                      key={category}
+                      style={[
+                        styles.dropdownItem,
+                        category === expenseCategory && styles.dropdownItemSelected,
+                      ]}
+                      onPress={() => selectCategory(category)}
+                    >
+                      <Text style={styles.dropdownItemText}>{category}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              ) : null}
+
+              <TextInput
+                style={styles.input}
+                keyboardType="decimal-pad"
+                placeholder="Tutar"
+                placeholderTextColor="#999"
+                value={expenseAmount}
+                onChangeText={onExpenseAmountChange}
+              />
+              <TouchableOpacity
+                style={[styles.expenseButton, isAddingExpense && styles.disabledButton]}
+                onPress={onAddExpense}
+                disabled={isAddingExpense}
+              >
+                {isAddingExpense ? (
+                  <ActivityIndicator color="white" />
+                ) : (
+                  <Text style={styles.modalBtnText}>{"Masraf Ekle"}</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={[styles.modalBtn, styles.cancelButton]}
+                onPress={onClose}
+                disabled={isUpdating || isAddingExpense}
+              >
+                <Text style={styles.modalBtnText}>{"İptal"}</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.modalBtn, styles.saveButton]}
+                onPress={onSave}
+                disabled={isUpdating || isAddingExpense}
+              >
+                {isUpdating ? (
+                  <ActivityIndicator color="white" />
+                ) : (
+                  <Text style={styles.modalBtnText}>Kaydet</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
         </View>
       </View>
     </Modal>
@@ -127,6 +218,79 @@ export function VehicleEditModal({
 const styles = StyleSheet.create({
   cancelButton: {
     backgroundColor: "#555",
+  },
+  disabledButton: {
+    opacity: 0.7,
+  },
+  dropdownButton: {
+    alignItems: "center",
+    backgroundColor: "#17181a",
+    borderColor: "#444",
+    borderRadius: 8,
+    borderWidth: 1,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 12,
+    minHeight: 44,
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+  },
+  dropdownButtonText: {
+    color: "white",
+    flex: 1,
+    fontSize: 14,
+    fontWeight: "700",
+    lineHeight: 18,
+  },
+  dropdownChevron: {
+    color: "#a8732b",
+    fontSize: 18,
+    fontWeight: "bold",
+    marginLeft: 10,
+  },
+  dropdownItem: {
+    borderBottomColor: "#34363c",
+    borderBottomWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  dropdownItemSelected: {
+    backgroundColor: "#3a3024",
+  },
+  dropdownItemText: {
+    color: "#f3f3f3",
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  dropdownList: {
+    backgroundColor: "#202126",
+    borderColor: "#444",
+    borderRadius: 8,
+    borderWidth: 1,
+    marginBottom: 12,
+    overflow: "hidden",
+  },
+  dropdownPlaceholder: {
+    color: "#999",
+  },
+  expenseBox: {
+    borderColor: "#444",
+    borderRadius: 8,
+    borderWidth: 1,
+    marginTop: 12,
+    padding: 12,
+  },
+  expenseButton: {
+    alignItems: "center",
+    backgroundColor: "#a8732b",
+    borderRadius: 8,
+    padding: 12,
+  },
+  expenseTitle: {
+    color: "white",
+    fontSize: 15,
+    fontWeight: "bold",
+    marginBottom: 10,
   },
   imagePickerBtn: {
     alignItems: "center",
@@ -152,7 +316,7 @@ const styles = StyleSheet.create({
   modalActions: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginTop: 10,
+    marginTop: 14,
   },
   modalBtn: {
     alignItems: "center",
@@ -168,6 +332,7 @@ const styles = StyleSheet.create({
   modalContent: {
     backgroundColor: "#2a2b30",
     borderRadius: 12,
+    maxHeight: "88%",
     padding: 20,
     width: "85%",
   },

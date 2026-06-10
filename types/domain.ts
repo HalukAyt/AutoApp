@@ -47,6 +47,51 @@ export interface UserProfile {
   routes: UserRoute[];
 }
 
+
+export interface AutoEvent {
+  id: number;
+  title: string;
+  description?: string | null;
+  imageUrl?: string | null;
+  location: string;
+  eventDate: string;
+  clubId?: number | null;
+  clubName?: string | null;
+  creatorName: string;
+  attendeeCount: number;
+  joinedByMe: boolean;
+  createdByMe: boolean;
+  clubEvent: boolean;
+  canManage: boolean;
+}
+
+export interface Club {
+  id: number;
+  name: string;
+  description?: string | null;
+  managerName: string;
+  managerUsername: string;
+  memberCount: number;
+  eventCount: number;
+  routeCount: number;
+  member: boolean;
+  manager: boolean;
+}
+export interface Story {
+  id: number;
+  imageUrl: string;
+  caption?: string | null;
+  musicTitle?: string | null;
+  musicArtist?: string | null;
+  musicUrl?: string | null;
+  locationName?: string | null;
+  showTimestamp: boolean;
+  authorName: string;
+  authorUsername: string;
+  authorProfilePhoto: string | null;
+  createdAt: string;
+  createdByMe: boolean;
+}
 export interface FeedPost {
   id: number;
   content: string;

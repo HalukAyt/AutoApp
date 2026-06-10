@@ -13,6 +13,7 @@ export interface CreateRouteRequest {
   endLongitude: number;
   distance: number;
   duration: number;
+  clubId?: number;
 }
 
 export const createRoute = async (payload: CreateRouteRequest) => {

@@ -276,7 +276,7 @@ export default function Home() {
           </View>
         </View>
 
-        <Pressable style={styles.activityCard} onPress={() => router.push("/feed")}>
+        <Pressable style={styles.activityCard} onPress={() => router.push("/events")}>
           <View style={styles.activityTextBox}>
             <View style={styles.activityIcon}>
               <Ionicons name="flag-outline" size={18} color="#c47a2d" />
