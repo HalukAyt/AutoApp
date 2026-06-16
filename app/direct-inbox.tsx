@@ -26,7 +26,11 @@ export default function DirectInbox() {
   const [conversations, setConversations] = useState<DirectConversation[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const fetchConversations = useCallback(async () => {
+  const fetchConversations = useCallback(async (showLoader = false) => {
+    if (showLoader) {
+      setLoading(true);
+    }
+
     try {
       const data = await getDirectConversations();
       setConversations(data);
@@ -40,8 +44,12 @@ export default function DirectInbox() {
 
   useFocusEffect(
     useCallback(() => {
-      setLoading(true);
-      fetchConversations();
+      fetchConversations(true);
+      const refreshTimer = setInterval(() => {
+        fetchConversations();
+      }, 4000);
+
+      return () => clearInterval(refreshTimer);
     }, [fetchConversations]),
   );
 

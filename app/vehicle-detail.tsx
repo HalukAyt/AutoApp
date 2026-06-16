@@ -68,6 +68,9 @@ export default function VehicleDetail() {
     const result = await ImagePicker.launchImageLibraryAsync({
       allowsEditing: true,
       aspect: [16, 9],
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      preferredAssetRepresentationMode:
+        ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Compatible,
       quality: 0.5,
     });
 

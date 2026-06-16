@@ -16,8 +16,8 @@ import {
 export default function Index() {
   const router = useRouter();
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
-  const [email, setEmail] = useState("haluk@gmail.com");
-  const [password, setPassword] = useState("123456");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
 
   const handleLogin = async () => {
     try {
@@ -39,13 +39,13 @@ export default function Index() {
           <Text style={styles.logo}>AutoTrack</Text>
 
           <Text style={styles.helperText}>
-            Kullanıcı adı ve şifrenizi giriniz.
+            E-mail ve şifrenizi giriniz.
           </Text>
 
           <TextInput
             autoCapitalize="none"
             autoCorrect={false}
-            placeholder="Kullanıcı Adı"
+            placeholder="E-mail"
             placeholderTextColor="#9a9a9a"
             style={styles.input}
             value={email}

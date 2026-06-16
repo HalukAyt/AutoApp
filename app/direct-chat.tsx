@@ -46,10 +46,14 @@ export default function DirectChat() {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
 
-  const fetchMessages = useCallback(async () => {
+  const fetchMessages = useCallback(async (showLoader = false) => {
     if (!username) {
       setLoading(false);
       return;
+    }
+
+    if (showLoader) {
+      setLoading(true);
     }
 
     try {
@@ -65,8 +69,12 @@ export default function DirectChat() {
 
   useFocusEffect(
     useCallback(() => {
-      setLoading(true);
-      fetchMessages();
+      fetchMessages(true);
+      const refreshTimer = setInterval(() => {
+        fetchMessages();
+      }, 3000);
+
+      return () => clearInterval(refreshTimer);
     }, [fetchMessages]),
   );
 
@@ -79,6 +87,7 @@ export default function DirectChat() {
       const sentMessage = await sendDirectMessage(username, trimmedMessage);
       setMessages((currentMessages) => [...currentMessages, sentMessage]);
       setMessageText("");
+      fetchMessages();
     } catch (error) {
       console.log("Direct send error:", error);
       Alert.alert("Hata", TEXT.sendError);

@@ -1,6 +1,5 @@
 import api from "@/api";
 import type { Vehicle } from "@/types/domain";
-import { Platform } from "react-native";
 
 import { getAuthHeaders } from "./authTokenService";
 
@@ -30,8 +29,16 @@ export interface UpdateVehicleRequest {
   imageUri?: string | null;
 }
 
-const getMobileFileUri = (imageUri: string) =>
-  Platform.OS === "android" ? imageUri : imageUri.replace("file://", "");
+const getImageMimeType = (filename: string) => {
+  const extension = filename.split(".").pop()?.toLowerCase();
+
+  if (extension === "jpg" || extension === "jpeg") return "image/jpeg";
+  if (extension === "png") return "image/png";
+  if (extension === "webp") return "image/webp";
+  if (extension === "heic" || extension === "heif") return "image/heic";
+
+  return "image/jpeg";
+};
 
 const appendImage = (
   formData: FormData,
@@ -41,14 +48,12 @@ const appendImage = (
 ) => {
   if (!imageUri) return;
 
-  const filename = imageUri.split("/").pop() || fallbackName;
-  const match = /\.(\w+)$/.exec(filename);
-  const type = match ? `image/${match[1]}` : "image/jpeg";
+  const filename = imageUri.split("/").pop()?.split("?")[0] || fallbackName;
 
   formData.append(fieldName, {
-    uri: getMobileFileUri(imageUri),
+    uri: imageUri,
     name: filename,
-    type,
+    type: getImageMimeType(filename),
   } as any);
 };
 

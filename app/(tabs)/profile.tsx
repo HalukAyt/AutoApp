@@ -1,10 +1,11 @@
+
 import { LoadingScreen } from "@/components/LoadingScreen";
+import { UserAvatar } from "@/components/UserAvatar";
 import { DatePickerField } from "@/components/forms/DatePickerField";
 import { GarageVehicleCard } from "@/components/profile/GarageVehicleCard";
 import { ProfilePostRow } from "@/components/profile/ProfilePostRow";
 import { ProfileRouteRow } from "@/components/profile/ProfileRouteRow";
 import { ProfileSection } from "@/components/profile/ProfileSection";
-import { UserAvatar } from "@/components/UserAvatar";
 import { VehicleEditModal } from "@/components/profile/VehicleEditModal";
 import { logout } from "@/services/authService";
 import { createPost, deletePost, updatePost } from "@/services/postService";
@@ -12,14 +13,19 @@ import { getProfile } from "@/services/profileService";
 import { createRoute, deleteRoute, updateRoute } from "@/services/routeService";
 import { uploadImageToServer } from "@/services/userProfileService";
 import { addVehicleExpense, updateVehicle } from "@/services/vehicleService";
-import type { ProfilePost, UserProfile, UserRoute, Vehicle } from "@/types/domain";
+import type {
+  ProfilePost,
+  UserProfile,
+  UserRoute,
+  Vehicle,
+} from "@/types/domain";
 import { getSecureImageUrl } from "@/utils/imageUrl";
 import { buildRouteMapParams } from "@/utils/routeMapParams";
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
 import * as Location from "expo-location";
-import { useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import { useFocusEffect, useRouter } from "expo-router";
+import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -31,8 +37,17 @@ import {
   Text,
   TextInput,
   View,
+  KeyboardAvoidingView,
+  TouchableWithoutFeedback,
+  Keyboard,
+  Platform,
 } from "react-native";
-import MapView, { Marker, type LatLng, type MapPressEvent, type Region } from "react-native-maps";
+import MapView, {
+  Marker,
+  type LatLng,
+  type MapPressEvent,
+  type Region,
+} from "react-native-maps";
 
 const coverImage = require("../../assets/images/21.jpg");
 const garageOne = require("../../assets/images/5.jpg");
@@ -108,7 +123,7 @@ export default function Profile() {
       setProfile(profileData);
     } catch (error) {
       console.log("Profile fetch error:", error);
-      Alert.alert("Hata", "Profil bilgileri al\u0131namad\u0131.");
+      Alert.alert("Hata", "Profil bilgileri alınamadı.");
     } finally {
       if (showLoader) {
         setLoading(false);
@@ -116,9 +131,11 @@ export default function Profile() {
     }
   };
 
-  useEffect(() => {
-    fetchProfileData(true);
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      fetchProfileData(true);
+    }, []),
+  );
 
   const handleImageSelection = async (
     isCover: boolean,
@@ -163,36 +180,36 @@ export default function Profile() {
 
   const handleProfilePhotoPress = () => {
     Alert.alert(
-      "Profil Foto\u011fraf\u0131 Se\u00e7",
-      "Bir se\u00e7enek belirleyin.",
+      "Profil Fotoğrafı Seç",
+      "Bir seçenek belirleyin.",
       [
         {
-          text: "Foto\u011fraf \u00c7ek",
+          text: "Fotoğraf Çek",
           onPress: () => handleImageSelection(false, true),
         },
         {
-          text: "Galeriden Se\u00e7",
+          text: "Galeriden Seç",
           onPress: () => handleImageSelection(false, false),
         },
-        { text: "\u0130ptal", style: "cancel" },
+        { text: "İptal", style: "cancel" },
       ],
     );
   };
 
   const handleCoverPhotoPress = () => {
     Alert.alert(
-      "Kapak Foto\u011fraf\u0131 Se\u00e7",
-      "Bir se\u00e7enek belirleyin.",
+      "Kapak Fotoğrafı Seç",
+      "Bir seçenek belirleyin.",
       [
         {
-          text: "Foto\u011fraf \u00c7ek",
+          text: "Fotoğraf Çek",
           onPress: () => handleImageSelection(true, true),
         },
         {
-          text: "Galeriden Se\u00e7",
+          text: "Galeriden Seç",
           onPress: () => handleImageSelection(true, false),
         },
-        { text: "\u0130ptal", style: "cancel" },
+        { text: "İptal", style: "cancel" },
       ],
     );
   };
@@ -239,7 +256,10 @@ export default function Profile() {
       await ImagePicker.requestMediaLibraryPermissionsAsync();
 
     if (permissionResult.granted === false) {
-      Alert.alert("Hata", "Foto\u011fraf galerisine eri\u015fim izni gerekiyor.");
+      Alert.alert(
+        "Hata",
+        "Fotoğraf galerisine erişim izni gerekiyor.",
+      );
       return;
     }
 
@@ -279,6 +299,7 @@ export default function Profile() {
   };
 
   const openRoutePicker = (mode: RoutePointMode) => {
+    Keyboard.dismiss();
     const selectedCoordinate =
       mode === "start" ? routeStartCoordinate : routeEndCoordinate;
     const selectedLabel = mode === "start" ? routeStartPoint : routeEndPoint;
@@ -296,6 +317,7 @@ export default function Profile() {
           }
         : DEFAULT_ROUTE_REGION,
     );
+    setRouteModalVisible(false);
     setRoutePickerVisible(true);
   };
 
@@ -318,13 +340,16 @@ export default function Profile() {
 
   const confirmRoutePoint = () => {
     if (!routePickerCoordinate) {
-      Alert.alert("Uyar\u0131", "Haritadan bir nokta se\u00e7in.");
+      Alert.alert("Uyarı", "Haritadan bir nokta seçin.");
       return;
     }
 
-    const label = routePickerLabel || formatCoordinateLabel(routePickerCoordinate);
+    const label =
+      routePickerLabel || formatCoordinateLabel(routePickerCoordinate);
     const nextStartCoordinate =
-      routePickerMode === "start" ? routePickerCoordinate : routeStartCoordinate;
+      routePickerMode === "start"
+        ? routePickerCoordinate
+        : routeStartCoordinate;
     const nextEndCoordinate =
       routePickerMode === "end" ? routePickerCoordinate : routeEndCoordinate;
 
@@ -338,11 +363,22 @@ export default function Profile() {
 
     if (nextStartCoordinate && nextEndCoordinate) {
       setRouteDistance(
-        formatDistance(calculateDistanceKm(nextStartCoordinate, nextEndCoordinate)),
+        formatDistance(
+          calculateDistanceKm(nextStartCoordinate, nextEndCoordinate),
+        ),
       );
     }
 
+    closeRoutePicker(true);
+  };
+
+  const closeRoutePicker = (returnToRouteModal = true) => {
     setRoutePickerVisible(false);
+    if (returnToRouteModal) {
+      setTimeout(() => {
+        setRouteModalVisible(true);
+      }, 220);
+    }
   };
 
   const resetRouteForm = () => {
@@ -407,7 +443,7 @@ export default function Profile() {
 
   const handleSavePost = async () => {
     if (!postContent.trim() && !postImageUri && !postExistingPhoto) {
-      Alert.alert("Uyar\u0131", "Bir metin ya da foto\u011fraf ekleyin.");
+      Alert.alert("Uyarı", "Bir metin ya da fotoğraf ekleyin.");
       return;
     }
 
@@ -428,14 +464,14 @@ export default function Profile() {
       closePostModal();
       await fetchProfileData();
       Alert.alert(
-        "Ba\u015far\u0131l\u0131",
+        "Başarılı",
         isEditingPost
-          ? "G\u00f6nderi g\u00fcncellendi."
-          : "G\u00f6nderi payla\u015f\u0131ld\u0131.",
+          ? "Gönderi güncellendi."
+          : "Gönderi paylaşıldı.",
       );
     } catch (error) {
       console.error("Post save error:", error);
-      Alert.alert("Hata", "G\u00f6nderi kaydedilemedi.");
+      Alert.alert("Hata", "Gönderi kaydedilemedi.");
     } finally {
       setIsCreatingPost(false);
     }
@@ -443,10 +479,10 @@ export default function Profile() {
 
   const handleDeletePost = (postId: number) => {
     Alert.alert(
-      "G\u00f6nderiyi Sil",
-      "Bu g\u00f6nderiyi silmek istiyor musunuz?",
+      "Gönderiyi Sil",
+      "Bu gönderiyi silmek istiyor musunuz?",
       [
-        { text: "\u0130ptal", style: "cancel" },
+        { text: "İptal", style: "cancel" },
         {
           text: "Sil",
           style: "destructive",
@@ -456,7 +492,7 @@ export default function Profile() {
               await fetchProfileData();
             } catch (error) {
               console.error("Post delete error:", error);
-              Alert.alert("Hata", "G\u00f6nderi silinemedi.");
+              Alert.alert("Hata", "Gönderi silinemedi.");
             }
           },
         },
@@ -476,8 +512,8 @@ export default function Profile() {
       Number.isNaN(parsedDuration)
     ) {
       Alert.alert(
-        "Uyar\u0131",
-        "Rota ad\u0131, ba\u015flang\u0131\u00e7, biti\u015f, mesafe ve s\u00fcre girin.",
+        "Uyarı",
+        "Rota adı, başlangıç, bitiş, mesafe ve süre girin.",
       );
       return;
     }
@@ -508,8 +544,8 @@ export default function Profile() {
       closeRouteModal();
       await fetchProfileData();
       Alert.alert(
-        "Ba\u015far\u0131l\u0131",
-        isEditingRoute ? "Rota g\u00fcncellendi." : "Rota olu\u015fturuldu.",
+        "Başarılı",
+        isEditingRoute ? "Rota güncellendi." : "Rota oluşturuldu.",
       );
     } catch (error) {
       console.error("Route save error:", error);
@@ -520,8 +556,8 @@ export default function Profile() {
   };
 
   const handleDeleteRoute = (routeId: number) => {
-    Alert.alert("Rotay\u0131 Sil", "Bu rotay\u0131 silmek istiyor musunuz?", [
-      { text: "\u0130ptal", style: "cancel" },
+    Alert.alert("Rotayı Sil", "Bu rotayı silmek istiyor musunuz?", [
+      { text: "İptal", style: "cancel" },
       {
         text: "Sil",
         style: "destructive",
@@ -538,13 +574,19 @@ export default function Profile() {
     ]);
   };
 
-
   const handleAddExpense = async () => {
     if (!editingVehicleId) return;
 
     const parsedAmount = Number(expenseAmount.replace(",", "."));
-    if (!expenseCategory.trim() || Number.isNaN(parsedAmount) || parsedAmount <= 0) {
-      Alert.alert("Uyar\u0131", "Masraf t\u00fcr\u00fc ve ge\u00e7erli tutar girin.");
+    if (
+      !expenseCategory.trim() ||
+      Number.isNaN(parsedAmount) ||
+      parsedAmount <= 0
+    ) {
+      Alert.alert(
+        "Uyarı",
+        "Masraf türü ve geçerli tutar girin.",
+      );
       return;
     }
 
@@ -557,7 +599,7 @@ export default function Profile() {
       setExpenseCategory("");
       setExpenseAmount("");
       await fetchProfileData();
-      Alert.alert("Ba\u015far\u0131l\u0131", "Masraf eklendi.");
+      Alert.alert("Başarılı", "Masraf eklendi.");
     } catch (error) {
       console.error("Expense add error:", error);
       Alert.alert("Hata", "Masraf eklenemedi.");
@@ -565,14 +607,15 @@ export default function Profile() {
       setIsAddingExpense(false);
     }
   };
+
   const handleUpdateVehicle = async () => {
     if (!editingVehicleId) return;
 
     const parsedYear = parseInt(editYear, 10);
     if (!editBrand.trim() || !editModel.trim() || Number.isNaN(parsedYear)) {
       Alert.alert(
-        "Uyar\u0131",
-        "L\u00fctfen marka, model ve y\u0131l alanlar\u0131n\u0131 doldurun.",
+        "Uyarı",
+        "Lütfen marka, model ve yıl alanlarını doldurun.",
       );
       return;
     }
@@ -597,15 +640,15 @@ export default function Profile() {
       });
 
       Alert.alert(
-        "Ba\u015far\u0131l\u0131",
-        "Ara\u00e7 bilgileri g\u00fcncellendi!",
+        "Başarılı",
+        "Araç bilgileri güncellendi!",
       );
       setEditModalVisible(false);
     } catch (error) {
       console.error("Vehicle update error:", error);
       Alert.alert(
         "Hata",
-        "Ara\u00e7 g\u00fcncellenirken bir sorun olu\u015ftu.",
+        "Araç güncellenirken bir sorun oluştu.",
       );
     } finally {
       setIsUpdating(false);
@@ -619,7 +662,7 @@ export default function Profile() {
   if (!profile) {
     return (
       <View style={styles.emptyScreen}>
-        <Text style={styles.emptyScreenText}>Veri bulunamad\u0131.</Text>
+        <Text style={styles.emptyScreenText}>Veri bulunamadı.</Text>
       </View>
     );
   }
@@ -647,7 +690,7 @@ export default function Profile() {
             />
           </Pressable>
           <Pressable style={styles.settingsButton}>
-            <Text style={styles.settingsText}>{"\u2699"}</Text>
+            <Text style={styles.settingsText}>{"⚙"}</Text>
           </Pressable>
         </View>
 
@@ -674,7 +717,7 @@ export default function Profile() {
                 style={styles.editButton}
                 onPress={() => router.push("/edit-profile")}
               >
-                <Text style={styles.editText}>{"Profili D\u00fczenle"}</Text>
+                <Text style={styles.editText}>{"Profili Düzenle"}</Text>
               </Pressable>
             </View>
 
@@ -686,20 +729,22 @@ export default function Profile() {
                 onPress={() => openConnections("followers")}
               >
                 <Text style={styles.followNumber}>{profile.followerCount}</Text>
-                <Text style={styles.followLabel}>{" Takip\u00e7i"}</Text>
+                <Text style={styles.followLabel}>{" Takipçi"}</Text>
               </Pressable>
               <Pressable
                 style={styles.followMetric}
                 onPress={() => openConnections("following")}
               >
-                <Text style={styles.followNumber}>{profile.followingCount}</Text>
+                <Text style={styles.followNumber}>
+                  {profile.followingCount}
+                </Text>
                 <Text style={styles.followLabel}> Takip Edilen</Text>
               </Pressable>
             </View>
           </View>
         </View>
 
-        <ProfileSection title={"Garaj\u0131m"}>
+        <ProfileSection title={"Garajım"}>
           <View style={styles.garageRow}>
             {profile.garage.length > 0 ? (
               profile.garage.map((vehicle, index) => (
@@ -712,18 +757,20 @@ export default function Profile() {
               ))
             ) : (
               <Text style={styles.emptyText}>
-                {"Garaj\u0131n\u0131zda hen\u00fcz ara\u00e7 yok."}
+                {"Garajınızda henüz araç yok."}
               </Text>
             )}
           </View>
         </ProfileSection>
 
-        <ProfileSection title={"G\u00f6nderiler"}>
+        <ProfileSection title={"Gönderiler"}>
           <Pressable
             style={styles.sectionActionButton}
             onPress={openCreatePostModal}
           >
-            <Text style={styles.sectionActionText}>{"G\u00f6nderi Olu\u015ftur"}</Text>
+            <Text style={styles.sectionActionText}>
+              {"Gönderi Oluştur"}
+            </Text>
           </Pressable>
 
           {profile.posts.length > 0 ? (
@@ -745,7 +792,7 @@ export default function Profile() {
             ))
           ) : (
             <Text style={styles.emptyText}>
-              {"Hen\u00fcz bir g\u00f6nderi payla\u015fmad\u0131n\u0131z."}
+              {"Henüz bir gönderi paylaşmadınız."}
             </Text>
           )}
         </ProfileSection>
@@ -755,7 +802,7 @@ export default function Profile() {
             style={styles.sectionActionButton}
             onPress={openCreateRouteModal}
           >
-            <Text style={styles.sectionActionText}>{"Rota Olu\u015ftur"}</Text>
+            <Text style={styles.sectionActionText}>{"Rota Oluştur"}</Text>
           </Pressable>
 
           {profile.routes.length > 0 ? (
@@ -779,7 +826,7 @@ export default function Profile() {
             ))
           ) : (
             <Text style={styles.emptyText}>
-              {"Hen\u00fcz bir rota olu\u015fturmad\u0131n\u0131z."}
+              {"Henüz bir rota oluşturmadınız."}
             </Text>
           )}
         </ProfileSection>
@@ -789,145 +836,202 @@ export default function Profile() {
           onPress={() => logout().then(() => router.push("/"))}
         >
           <Text style={styles.logoutButtonText}>
-            {"\u00c7\u0131k\u0131\u015f Yap"}
+            {"Çıkış Yap"}
           </Text>
         </Pressable>
       </ScrollView>
 
       <Modal visible={isPostModalVisible} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>
-              {editingPostId ? "G\u00f6nderiyi D\u00fczenle" : "G\u00f6nderi Olu\u015ftur"}
-            </Text>
+        <TouchableWithoutFeedback onPress={() => Keyboard.dismiss()}>
+          <KeyboardAvoidingView
+            style={styles.modalOverlay}
+            behavior={Platform.OS === "ios" ? "padding" : "height"}
+            keyboardVerticalOffset={24}
+          >
+            <ScrollView
+              contentContainerStyle={styles.modalScrollContent}
+              keyboardDismissMode="interactive"
+              keyboardShouldPersistTaps="handled"
+            >
+            <TouchableWithoutFeedback>
+              <View style={styles.modalContent}>
+                <Text style={styles.modalTitle}>
+                  {editingPostId
+                    ? "Gönderiyi Düzenle"
+                    : "Gönderi Oluştur"}
+                </Text>
 
-            <TextInput
-              style={[styles.modalInput, styles.postContentInput]}
-              multiline
-              placeholder="Ne payla\u015fmak istersin?"
-              placeholderTextColor="#999"
-              value={postContent}
-              onChangeText={setPostContent}
-            />
+                <TextInput
+                  style={[styles.modalInput, styles.postContentInput]}
+                  multiline
+                  placeholder="Ne paylaşmak istersin?"
+                  placeholderTextColor="#999"
+                  value={postContent}
+                  onChangeText={setPostContent}
+                />
 
-            {postImageUri || postExistingPhoto ? (
-              <Image
-                source={
-                  postImageUri
-                    ? { uri: postImageUri }
-                    : { uri: getSecureImageUrl(postExistingPhoto as string) }
-                }
-                style={styles.postPreviewImage}
-                contentFit="cover"
-              />
-            ) : null}
+                {postImageUri || postExistingPhoto ? (
+                  <Image
+                    source={
+                      postImageUri
+                        ? { uri: postImageUri }
+                        : { uri: getSecureImageUrl(postExistingPhoto as string) }
+                    }
+                    style={styles.postPreviewImage}
+                    contentFit="cover"
+                  />
+                ) : null}
 
-            <Pressable style={styles.imagePickerButton} onPress={pickPostImage}>
-              <Text style={styles.imagePickerButtonText}>
-                {postImageUri ? "Foto\u011fraf\u0131 De\u011fi\u015ftir" : "Foto\u011fraf Ekle"}
-              </Text>
-            </Pressable>
-
-            <View style={styles.modalActions}>
-              <Pressable
-                style={[styles.modalButton, styles.cancelButton]}
-                onPress={closePostModal}
-                disabled={isCreatingPost}
-              >
-                <Text style={styles.modalButtonText}>{"\u0130ptal"}</Text>
-              </Pressable>
-              <Pressable
-                style={[styles.modalButton, styles.saveButton]}
-                onPress={handleSavePost}
-                disabled={isCreatingPost}
-              >
-                {isCreatingPost ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <Text style={styles.modalButtonText}>
-                    {editingPostId ? "Kaydet" : "Payla\u015f"}
+                <Pressable
+                  style={styles.imagePickerButton}
+                  onPress={() => {
+                    Keyboard.dismiss();
+                    pickPostImage();
+                  }}
+                >
+                  <Text style={styles.imagePickerButtonText}>
+                    {postImageUri
+                      ? "Fotoğrafı Değiştir"
+                      : "Fotoğraf Ekle"}
                   </Text>
-                )}
-              </Pressable>
-            </View>
-          </View>
-        </View>
+                </Pressable>
+
+                <View style={styles.modalActions}>
+                  <Pressable
+                    style={[styles.modalButton, styles.cancelButton]}
+                    onPress={() => {
+                      Keyboard.dismiss();
+                      closePostModal();
+                    }}
+                    disabled={isCreatingPost}
+                  >
+                    <Text style={styles.modalButtonText}>{"İptal"}</Text>
+                  </Pressable>
+                  <Pressable
+                    style={[styles.modalButton, styles.saveButton]}
+                    onPress={() => {
+                      Keyboard.dismiss();
+                      handleSavePost();
+                    }}
+                    disabled={isCreatingPost}
+                  >
+                    {isCreatingPost ? (
+                      <ActivityIndicator color="#fff" />
+                    ) : (
+                      <Text style={styles.modalButtonText}>
+                        {editingPostId ? "Kaydet" : "Paylaş"}
+                      </Text>
+                    )}
+                  </Pressable>
+                </View>
+              </View>
+            </TouchableWithoutFeedback>
+            </ScrollView>
+          </KeyboardAvoidingView>
+        </TouchableWithoutFeedback>
       </Modal>
 
       <Modal visible={isRouteModalVisible} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>
-              {editingRouteId ? "Rotay\u0131 D\u00fczenle" : "Rota Olu\u015ftur"}
-            </Text>
+        <TouchableWithoutFeedback onPress={() => Keyboard.dismiss()}>
+          <KeyboardAvoidingView
+            style={styles.modalOverlay}
+            behavior={Platform.OS === "ios" ? "padding" : "height"}
+            keyboardVerticalOffset={24}
+          >
+            <ScrollView
+              contentContainerStyle={styles.modalScrollContent}
+              keyboardDismissMode="interactive"
+              keyboardShouldPersistTaps="handled"
+            >
+            <TouchableWithoutFeedback>
+              <View style={styles.modalContent}>
+                <Text style={styles.modalTitle}>
+                  {editingRouteId
+                    ? "Rotayı Düzenle"
+                    : "Rota Oluştur"}
+                </Text>
 
-            <TextInput
-              style={styles.modalInput}
-              placeholder="Rota adı"
-              placeholderTextColor="#999"
-              value={routeTitle}
-              onChangeText={setRouteTitle}
-            />
-            <RoutePointButton
-              label="Başlangıç"
-              value={routeStartPoint}
-              onPress={() => openRoutePicker("start")}
-            />
-            <RoutePointButton
-              label="Bitiş"
-              value={routeEndPoint}
-              onPress={() => openRoutePicker("end")}
-            />
-            <TextInput
-              style={styles.modalInput}
-              keyboardType="decimal-pad"
-              placeholder="Mesafe (km)"
-              placeholderTextColor="#999"
-              value={routeDistance}
-              onChangeText={setRouteDistance}
-            />
-            <TextInput
-              style={styles.modalInput}
-              keyboardType="numeric"
-              placeholder="Süre (saat)"
-              placeholderTextColor="#999"
-              value={routeDuration}
-              onChangeText={setRouteDuration}
-            />
-            <DatePickerField
-              label="Rota Tarihi"
-              value={routeDate}
-              onChange={setRouteDate}
-              optional
-              placeholder="Rota tarihi seç"
-              iosDisplay="compact"
-            />
+                <TextInput
+                  style={styles.modalInput}
+                  placeholder="Rota adı"
+                  placeholderTextColor="#999"
+                  value={routeTitle}
+                  onChangeText={setRouteTitle}
+                />
+                <RoutePointButton
+                  label="Başlangıç"
+                  value={routeStartPoint}
+                  onPress={() => openRoutePicker("start")}
+                />
+                <RoutePointButton
+                  label="Bitiş"
+                  value={routeEndPoint}
+                  onPress={() => openRoutePicker("end")}
+                />
+                <TextInput
+                  style={styles.modalInput}
+                  keyboardType="decimal-pad"
+                  placeholder="Mesafe (km)"
+                  placeholderTextColor="#999"
+                  value={routeDistance}
+                  onChangeText={setRouteDistance}
+                />
+                <TextInput
+                  style={styles.modalInput}
+                  keyboardType="numeric"
+                  placeholder="Süre (saat)"
+                  placeholderTextColor="#999"
+                  value={routeDuration}
+                  onChangeText={setRouteDuration}
+                />
+                <DatePickerField
+                  label="Rota Tarihi"
+                  value={routeDate}
+                  onChange={setRouteDate}
+                  optional
+                  placeholder="Rota tarihi seç"
+                  iosDisplay="compact"
+                />
 
-            <View style={styles.modalActions}>
-              <Pressable
-                style={[styles.modalButton, styles.cancelButton]}
-                onPress={closeRouteModal}
-                disabled={isCreatingRoute}
-              >
-                <Text style={styles.modalButtonText}>{"\u0130ptal"}</Text>
-              </Pressable>
-              <Pressable
-                style={[styles.modalButton, styles.saveButton]}
-                onPress={handleSaveRoute}
-                disabled={isCreatingRoute}
-              >
-                {isCreatingRoute ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <Text style={styles.modalButtonText}>{"Kaydet"}</Text>
-                )}
-              </Pressable>
-            </View>
-          </View>
-        </View>
+                <View style={styles.modalActions}>
+                  <Pressable
+                    style={[styles.modalButton, styles.cancelButton]}
+                    onPress={() => {
+                      Keyboard.dismiss();
+                      closeRouteModal();
+                    }}
+                    disabled={isCreatingRoute}
+                  >
+                    <Text style={styles.modalButtonText}>{"İptal"}</Text>
+                  </Pressable>
+                  <Pressable
+                    style={[styles.modalButton, styles.saveButton]}
+                    onPress={() => {
+                      Keyboard.dismiss();
+                      handleSaveRoute();
+                    }}
+                    disabled={isCreatingRoute}
+                  >
+                    {isCreatingRoute ? (
+                      <ActivityIndicator color="#fff" />
+                    ) : (
+                      <Text style={styles.modalButtonText}>{"Kaydet"}</Text>
+                    )}
+                  </Pressable>
+                </View>
+              </View>
+            </TouchableWithoutFeedback>
+            </ScrollView>
+          </KeyboardAvoidingView>
+        </TouchableWithoutFeedback>
       </Modal>
 
-      <Modal visible={isRoutePickerVisible} animationType="slide">
+      <Modal
+        visible={isRoutePickerVisible}
+        animationType="slide"
+        presentationStyle="fullScreen"
+        onRequestClose={() => closeRoutePicker(true)}
+      >
         <View style={styles.mapPickerScreen}>
           <MapView
             style={styles.mapPicker}
@@ -941,30 +1045,33 @@ export default function Profile() {
                 coordinate={routePickerCoordinate}
                 title={
                   routePickerMode === "start"
-                    ? "Ba\u015flang\u0131\u00e7"
-                    : "Biti\u015f"
+                    ? "Başlangıç"
+                    : "Bitiş"
                 }
                 description={routePickerLabel}
               />
             ) : null}
           </MapView>
 
-          <SafeAreaView pointerEvents="box-none" style={styles.mapPickerOverlay}>
+          <SafeAreaView
+            pointerEvents="box-none"
+            style={styles.mapPickerOverlay}
+          >
             <View style={styles.mapPickerHeader}>
               <Pressable
                 style={styles.mapPickerIconButton}
-                onPress={() => setRoutePickerVisible(false)}
+                onPress={() => closeRoutePicker(true)}
               >
                 <Text style={styles.mapPickerIconText}>{"<"}</Text>
               </Pressable>
               <View style={styles.mapPickerTitleWrap}>
                 <Text style={styles.mapPickerTitle}>
                   {routePickerMode === "start"
-                    ? "Ba\u015flang\u0131\u00e7 Se\u00e7"
-                    : "Biti\u015f Se\u00e7"}
+                    ? "Başlangıç Seç"
+                    : "Bitiş Seç"}
                 </Text>
                 <Text style={styles.mapPickerSubtitle} numberOfLines={1}>
-                  {routePickerLabel || "Nokta se\u00e7ilmedi"}
+                  {routePickerLabel || "Nokta seçilmedi"}
                 </Text>
               </View>
             </View>
@@ -972,15 +1079,17 @@ export default function Profile() {
             <View style={styles.mapPickerFooter}>
               <Pressable
                 style={[styles.modalButton, styles.cancelButton]}
-                onPress={() => setRoutePickerVisible(false)}
+                onPress={() => closeRoutePicker(true)}
               >
-                <Text style={styles.modalButtonText}>{"\u0130ptal"}</Text>
+                <Text style={styles.modalButtonText}>{"İptal"}</Text>
               </Pressable>
               <Pressable
                 style={[styles.modalButton, styles.saveButton]}
                 onPress={confirmRoutePoint}
               >
-                <Text style={styles.modalButtonText}>{"Noktay\u0131 Se\u00e7"}</Text>
+                <Text style={styles.modalButtonText}>
+                  {"Noktayı Seç"}
+                </Text>
               </Pressable>
             </View>
           </SafeAreaView>
@@ -1028,13 +1137,10 @@ function RoutePointButton({
     <Pressable style={styles.routePointButton} onPress={onPress}>
       <Text style={styles.routePointLabel}>{label}</Text>
       <Text
-        style={[
-          styles.routePointValue,
-          !value && styles.routePointPlaceholder,
-        ]}
+        style={[styles.routePointValue, !value && styles.routePointPlaceholder]}
         numberOfLines={2}
       >
-        {value || "Haritadan se\u00e7"}
+        {value || "Haritadan seç"}
       </Text>
     </Pressable>
   );
@@ -1193,6 +1299,7 @@ const styles = StyleSheet.create({
   },
   mapPicker: {
     ...StyleSheet.absoluteFillObject,
+    flex: 1,
   },
   mapPickerFooter: {
     alignSelf: "center",
@@ -1289,6 +1396,12 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.72)",
     flex: 1,
     justifyContent: "center",
+  },
+  modalScrollContent: {
+    flexGrow: 1,
+    justifyContent: "center",
+    paddingHorizontal: 20,
+    paddingVertical: 28,
   },
   modalTitle: {
     color: "#f2f2f2",
