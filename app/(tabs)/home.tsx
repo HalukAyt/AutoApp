@@ -24,6 +24,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 const carImage = require("../../assets/images/5.jpg");
+const activeVehiclePlaceholder = require("../../assets/images/active-vehicle-placeholder.png");
 const eventImage = require("../../assets/images/33.jpg");
 
 type IconName = ComponentProps<typeof Ionicons>["name"];
@@ -112,10 +113,13 @@ function buildDashboardReminders({
   }
 
   events.forEach((event) => {
+    if (!event.joinedByMe) return;
+
     const eventReminder = createDateReminder(
       `${event.title} etkinli\u011fi`,
       event.eventDate,
       ACTIVITY_REMINDER_WINDOW_DAYS,
+      event.eventTime,
     );
 
     if (eventReminder) {
@@ -145,6 +149,7 @@ function createDateReminder(
   label: string,
   dateValue: string | null | undefined,
   windowDays: number,
+  timeValue?: string | null,
 ): ReminderItem | null {
   const date = parseReminderDate(dateValue);
 
@@ -158,7 +163,7 @@ function createDateReminder(
 
   return {
     date,
-    text: `${label.trim()} ${formatReminderTiming(daysUntil)}`,
+    text: `${label.trim()} ${formatReminderTiming(daysUntil, timeValue)}`,
   };
 }
 
@@ -194,11 +199,21 @@ function startOfDay(date: Date) {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }
 
-function formatReminderTiming(daysUntil: number) {
-  if (daysUntil === 0) return "bug\u00fcn";
-  if (daysUntil === 1) return "yar\u0131n";
+function formatReminderTiming(daysUntil: number, timeValue?: string | null) {
+  const timeText = formatReminderTime(timeValue);
 
-  return `${daysUntil} g\u00fcn kald\u0131`;
+  if (daysUntil === 0) return timeText ? `bug\u00fcn ${timeText}` : "bug\u00fcn";
+  if (daysUntil === 1) return timeText ? `yar\u0131n ${timeText}` : "yar\u0131n";
+
+  return timeText ? `${daysUntil} g\u00fcn kald\u0131 (${timeText})` : `${daysUntil} g\u00fcn kald\u0131`;
+}
+
+function formatReminderTime(value?: string | null) {
+  if (!value) return "";
+
+  const [hour, minute] = value.split(":");
+
+  return hour && minute ? `${hour.padStart(2, "0")}:${minute.padStart(2, "0")}` : "";
 }
 
 export default function Home() {
@@ -355,14 +370,17 @@ export default function Home() {
 
         <View style={styles.vehicleCard}>
           <View style={styles.vehicleImageFrame}>
-            {activeVehicle?.imageUrl ? (
-              <Image
-                source={{ uri: activeVehicle.imageUrl }}
-                style={styles.vehicleImage}
-              />
-            ) : (
-              <Image source={carImage} style={styles.vehicleImage} />
-            )}
+            <Image
+              source={
+                activeVehicle?.imageUrl
+                  ? { uri: activeVehicle.imageUrl }
+                  : activeVehicle
+                    ? carImage
+                    : activeVehiclePlaceholder
+              }
+              style={styles.vehicleImage}
+              resizeMode={activeVehicle ? "cover" : "contain"}
+            />
           </View>
 
           <View style={styles.vehicleInfo}>

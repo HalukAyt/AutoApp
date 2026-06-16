@@ -33,14 +33,20 @@ export function ProfileRouteRow({
         ) : null}
         <Text style={styles.rowDetail}>{detail}</Text>
       </Pressable>
-      <View style={styles.actionGroup}>
-        <Pressable style={styles.actionButton} onPress={onEdit}>
-          <Text style={styles.actionText}>{"D\u00fczenle"}</Text>
-        </Pressable>
-        <Pressable style={[styles.actionButton, styles.deleteButton]} onPress={onDelete}>
-          <Text style={styles.actionText}>{"Sil"}</Text>
-        </Pressable>
-      </View>
+      {onEdit || onDelete ? (
+        <View style={styles.actionGroup}>
+          {onEdit ? (
+            <Pressable style={styles.actionButton} onPress={onEdit}>
+              <Text style={styles.actionText}>{"D\u00fczenle"}</Text>
+            </Pressable>
+          ) : null}
+          {onDelete ? (
+            <Pressable style={[styles.actionButton, styles.deleteButton]} onPress={onDelete}>
+              <Text style={styles.actionText}>{"Sil"}</Text>
+            </Pressable>
+          ) : null}
+        </View>
+      ) : null}
     </View>
   );
 }

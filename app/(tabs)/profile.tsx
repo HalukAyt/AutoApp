@@ -4,6 +4,7 @@ import { GarageVehicleCard } from "@/components/profile/GarageVehicleCard";
 import { ProfilePostRow } from "@/components/profile/ProfilePostRow";
 import { ProfileRouteRow } from "@/components/profile/ProfileRouteRow";
 import { ProfileSection } from "@/components/profile/ProfileSection";
+import { UserAvatar } from "@/components/UserAvatar";
 import { VehicleEditModal } from "@/components/profile/VehicleEditModal";
 import { logout } from "@/services/authService";
 import { createPost, deletePost, updatePost } from "@/services/postService";
@@ -34,7 +35,6 @@ import {
 import MapView, { Marker, type LatLng, type MapPressEvent, type Region } from "react-native-maps";
 
 const coverImage = require("../../assets/images/21.jpg");
-const avatarImage = require("../../assets/images/3.jpg");
 const garageOne = require("../../assets/images/5.jpg");
 const garageTwo = require("../../assets/images/6.jpg");
 const postImage = require("../../assets/images/33.jpg");
@@ -47,6 +47,7 @@ const DEFAULT_ROUTE_REGION: Region = {
 };
 
 type RoutePointMode = "start" | "end";
+type ConnectionType = "followers" | "following";
 
 export default function Profile() {
   const router = useRouter();
@@ -194,6 +195,18 @@ export default function Profile() {
         { text: "\u0130ptal", style: "cancel" },
       ],
     );
+  };
+
+  const openConnections = (type: ConnectionType) => {
+    if (!profile?.username) return;
+
+    router.push({
+      pathname: "/user-connections",
+      params: {
+        type,
+        username: profile.username.replace(/^@/, "").trim(),
+      },
+    });
   };
 
   const openEditVehicleModal = (vehicle: Vehicle) => {
@@ -644,15 +657,12 @@ export default function Profile() {
               onPress={handleProfilePhotoPress}
               style={styles.avatarPressable}
             >
-              <Image
-                source={
-                  profile.profilePhoto
-                    ? { uri: getSecureImageUrl(profile.profilePhoto) }
-                    : avatarImage
-                }
-                style={styles.avatarImage}
-                contentFit="cover"
-                transition={200}
+              <UserAvatar
+                imageUrl={profile.profilePhoto}
+                name={`${profile.name} ${profile.lastName ?? ""}`}
+                username={profile.username}
+                size={80}
+                borderRadius={8}
               />
             </Pressable>
           </View>
@@ -671,10 +681,20 @@ export default function Profile() {
             <Text style={styles.username}>{profile.username}</Text>
 
             <View style={styles.followRow}>
-              <Text style={styles.followNumber}>{profile.followerCount}</Text>
-              <Text style={styles.followLabel}>{" Takip\u00e7i"}</Text>
-              <Text style={styles.followNumber}> {profile.followingCount}</Text>
-              <Text style={styles.followLabel}> Takip Edilen</Text>
+              <Pressable
+                style={styles.followMetric}
+                onPress={() => openConnections("followers")}
+              >
+                <Text style={styles.followNumber}>{profile.followerCount}</Text>
+                <Text style={styles.followLabel}>{" Takip\u00e7i"}</Text>
+              </Pressable>
+              <Pressable
+                style={styles.followMetric}
+                onPress={() => openConnections("following")}
+              >
+                <Text style={styles.followNumber}>{profile.followingCount}</Text>
+                <Text style={styles.followLabel}> Takip Edilen</Text>
+              </Pressable>
             </View>
           </View>
         </View>
@@ -843,18 +863,18 @@ export default function Profile() {
 
             <TextInput
               style={styles.modalInput}
-              placeholder="Rota ad\u0131"
+              placeholder="Rota adı"
               placeholderTextColor="#999"
               value={routeTitle}
               onChangeText={setRouteTitle}
             />
             <RoutePointButton
-              label="Ba\u015flang\u0131\u00e7"
+              label="Başlangıç"
               value={routeStartPoint}
               onPress={() => openRoutePicker("start")}
             />
             <RoutePointButton
-              label="Biti\u015f"
+              label="Bitiş"
               value={routeEndPoint}
               onPress={() => openRoutePicker("end")}
             />
@@ -869,7 +889,7 @@ export default function Profile() {
             <TextInput
               style={styles.modalInput}
               keyboardType="numeric"
-              placeholder="S\u00fcre (saat)"
+              placeholder="Süre (saat)"
               placeholderTextColor="#999"
               value={routeDuration}
               onChangeText={setRouteDuration}
@@ -879,7 +899,7 @@ export default function Profile() {
               value={routeDate}
               onChange={setRouteDate}
               optional
-              placeholder="Rota tarihi se\u00e7"
+              placeholder="Rota tarihi seç"
               iosDisplay="compact"
             />
 
@@ -1077,10 +1097,6 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     width: 84,
   },
-  avatarImage: {
-    height: "100%",
-    width: "100%",
-  },
   avatarPressable: {
     height: "100%",
     width: "100%",
@@ -1127,6 +1143,10 @@ const styles = StyleSheet.create({
     color: "#d5d5d8",
     fontSize: 17,
   },
+  followMetric: {
+    alignItems: "center",
+    flexDirection: "row",
+  },
   followNumber: {
     color: "#f3f3f3",
     fontSize: 19,
@@ -1135,6 +1155,7 @@ const styles = StyleSheet.create({
   followRow: {
     alignItems: "center",
     flexDirection: "row",
+    gap: 12,
   },
   imagePickerButton: {
     alignItems: "center",

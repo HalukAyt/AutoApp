@@ -3,9 +3,11 @@ import {
   getPostComments,
   togglePostLike,
 } from "@/services/postService";
+import { UserAvatar } from "@/components/UserAvatar";
 import type { FeedPost, PostCommentContent } from "@/types/domain";
 import { getSecureImageUrl } from "@/utils/imageUrl";
 import { Image } from "expo-image";
+import { useRouter } from "expo-router";
 import { useState } from "react";
 import {
   ActivityIndicator,
@@ -19,10 +21,10 @@ import {
 
 interface FeedPostCardProps {
   post: FeedPost;
-  defaultAvatar: number;
 }
 
-export function FeedPostCard({ post, defaultAvatar }: FeedPostCardProps) {
+export function FeedPostCard({ post }: FeedPostCardProps) {
+  const router = useRouter();
   const [liked, setLiked] = useState(post.likedByMe || false);
   const [likeCount, setLikeCount] = useState(post.likesCount);
   const [showCommentInput, setShowCommentInput] = useState(false);
@@ -31,6 +33,17 @@ export function FeedPostCard({ post, defaultAvatar }: FeedPostCardProps) {
   const [comments, setComments] = useState<PostCommentContent[]>([]);
   const [commentsLoading, setCommentsLoading] = useState(false);
   const [commentsLoaded, setCommentsLoaded] = useState(false);
+
+  const openUserProfile = (username?: string | null) => {
+    const cleanUsername = username?.replace(/^@/, "").trim();
+
+    if (!cleanUsername) return;
+
+    router.push({
+      pathname: "/user-profile",
+      params: { username: cleanUsername },
+    });
+  };
 
   const handleLike = async () => {
     setLiked(!liked);
@@ -68,37 +81,34 @@ export function FeedPostCard({ post, defaultAvatar }: FeedPostCardProps) {
 
     try {
       await addPostComment(post.id, trimmedComment);
+      const postComments = await getPostComments(post.id);
 
       setCommentCount((prev) => prev + 1);
-      setComments((prev) => [
-        ...prev,
-        {
-          content: trimmedComment,
-          authorUsername: "Sen",
-          authorProfilePhoto: null,
-        },
-      ]);
+      setComments(postComments);
+      setCommentsLoaded(true);
       setCommentText("");
     } catch (error) {
       console.log("Comment submit error:", error);
-      Alert.alert("Hata", "Yorum g\u00f6nderilemedi.");
+      Alert.alert("Hata", "Yorum gönderilemedi.");
     }
   };
 
   return (
     <View style={styles.post}>
-      <View style={styles.authorRow}>
-        <Image
-          source={
-            post.authorProfilePhoto
-              ? { uri: getSecureImageUrl(post.authorProfilePhoto) }
-              : defaultAvatar
-          }
+      <Pressable
+        style={styles.authorRow}
+        onPress={() => openUserProfile(post.authorUsername)}
+      >
+        <UserAvatar
+          imageUrl={post.authorProfilePhoto}
+          name={post.authorName}
+          username={post.authorUsername}
+          size={30}
+          borderRadius={15}
           style={styles.authorAvatar}
-          contentFit="cover"
         />
         <Text style={styles.author}>{post.authorName}</Text>
-      </View>
+      </Pressable>
 
       {post.postPhoto && (
         <Image
@@ -139,23 +149,26 @@ export function FeedPostCard({ post, defaultAvatar }: FeedPostCardProps) {
             />
           ) : (
             comments.map((item, index) => (
-              <View key={`${item.authorUsername}-${index}`} style={styles.commentRow}>
-                <Image
-                  source={
-                    item.authorProfilePhoto
-                      ? { uri: getSecureImageUrl(item.authorProfilePhoto) }
-                      : defaultAvatar
-                  }
+              <Pressable
+                key={`${item.authorUsername}-${index}`}
+                style={styles.commentRow}
+                onPress={() => openUserProfile(item.authorUsername)}
+              >
+                <UserAvatar
+                  imageUrl={item.authorProfilePhoto}
+                  name={item.authorName}
+                  username={item.authorUsername}
+                  size={28}
+                  borderRadius={14}
                   style={styles.commentAvatar}
-                  contentFit="cover"
                 />
                 <View style={styles.commentTextBubble}>
                   <Text style={styles.commentUsername}>
-                    {post.authorName}
+                    {item.authorName || item.authorUsername}
                   </Text>
                   <Text style={styles.commentContentText}>{item.content}</Text>
                 </View>
-              </View>
+              </Pressable>
             ))
           )}
 
@@ -172,7 +185,7 @@ export function FeedPostCard({ post, defaultAvatar }: FeedPostCardProps) {
               onPress={handleCommentSubmit}
               style={styles.commentSubmitBtn}
             >
-              <Text style={styles.commentSubmitText}>{"Payla\u015f"}</Text>
+              <Text style={styles.commentSubmitText}>{"Paylaş"}</Text>
             </Pressable>
           </View>
         </View>

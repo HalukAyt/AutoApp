@@ -5,11 +5,13 @@ import { useState } from "react";
 import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
 
 type IOSDatePickerDisplay = "default" | "compact" | "inline" | "spinner";
+type PickerMode = "date" | "time";
 
 interface DatePickerFieldProps {
   label: string;
   value: string;
   onChange: (value: string) => void;
+  mode?: PickerMode;
   optional?: boolean;
   placeholder?: string;
   iosDisplay?: IOSDatePickerDisplay;
@@ -22,6 +24,9 @@ const toIsoDate = (date: Date) =>
     date.getDate(),
   )}`;
 
+const toIsoTime = (date: Date) =>
+  `${padDatePart(date.getHours())}:${padDatePart(date.getMinutes())}`;
+
 const parseIsoDate = (value: string) => {
   const [year, month, day] = value.split("-").map(Number);
   const date = new Date(year, month - 1, day);
@@ -29,25 +34,62 @@ const parseIsoDate = (value: string) => {
   return Number.isNaN(date.getTime()) ? new Date() : date;
 };
 
-const formatDisplayDate = (value: string, placeholder: string) => {
-  if (!value) return placeholder;
+const parseIsoTime = (value: string) => {
+  const [hour, minute] = value.split(":").map(Number);
+  const date = new Date();
 
+  date.setHours(
+    Number.isFinite(hour) ? hour : 0,
+    Number.isFinite(minute) ? minute : 0,
+    0,
+    0,
+  );
+
+  return date;
+};
+
+const formatDisplayDate = (value: string) => {
   const [year, month, day] = value.slice(0, 10).split("-");
   if (!year || !month || !day) return value;
 
   return `${day}/${month}/${year}`;
 };
 
+const formatDisplayTime = (value: string) => {
+  const [hour, minute] = value.split(":");
+
+  return hour && minute ? `${hour.padStart(2, "0")}:${minute.padStart(2, "0")}` : value;
+};
+
+const formatDisplayValue = (value: string, placeholder: string, mode: PickerMode) => {
+  if (!value) return placeholder;
+
+  return mode === "time" ? formatDisplayTime(value) : formatDisplayDate(value);
+};
+
 export function DatePickerField({
   label,
   value,
   onChange,
+  mode = "date",
   optional,
   placeholder = "Tarih se\u00e7",
   iosDisplay = "inline",
 }: DatePickerFieldProps) {
   const [isPickerVisible, setPickerVisible] = useState(false);
-  const selectedDate = value ? parseIsoDate(value) : new Date();
+  const selectedDate = value
+    ? mode === "time"
+      ? parseIsoTime(value)
+      : parseIsoDate(value)
+    : new Date();
+  const pickerDisplay =
+    Platform.OS === "ios"
+      ? mode === "time" && iosDisplay === "inline"
+        ? "spinner"
+        : iosDisplay
+      : mode === "time"
+        ? "clock"
+        : "calendar";
 
   const handleDateChange = (
     event: DateTimePickerEvent,
@@ -61,7 +103,7 @@ export function DatePickerField({
       return;
     }
 
-    onChange(toIsoDate(selected));
+    onChange(mode === "time" ? toIsoTime(selected) : toIsoDate(selected));
   };
 
   return (
@@ -76,7 +118,7 @@ export function DatePickerField({
         onPress={() => setPickerVisible((visible) => !visible)}
       >
         <Text style={[styles.fieldText, !value && styles.placeholderText]}>
-          {formatDisplayDate(value, placeholder)}
+          {formatDisplayValue(value, placeholder, mode)}
         </Text>
         <Text style={styles.actionText}>{value ? "De\u011fi\u015ftir" : "Se\u00e7"}</Text>
       </Pressable>
@@ -85,8 +127,8 @@ export function DatePickerField({
         <View style={styles.pickerWrap}>
           <DateTimePicker
             value={selectedDate}
-            mode="date"
-            display={Platform.OS === "ios" ? iosDisplay : "calendar"}
+            mode={mode}
+            display={pickerDisplay}
             locale="tr-TR"
             onChange={handleDateChange}
           />
@@ -123,6 +165,7 @@ const styles = StyleSheet.create({
   },
   container: {
     gap: 8,
+    marginBottom: 12,
   },
   doneText: {
     color: "#c47a2d",

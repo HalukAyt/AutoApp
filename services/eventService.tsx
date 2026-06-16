@@ -9,6 +9,7 @@ export interface CreateEventRequest {
   description?: string;
   location: string;
   eventDate: string;
+  eventTime: string;
   clubId?: number;
   imageUri?: string | null;
 }
@@ -30,22 +31,12 @@ const appendImage = (formData: FormData, imageUri: string | null | undefined) =>
   } as any);
 };
 
-export const getEvents = async () => {
-  const response = await api().get<AutoEvent[]>("/events", {
-    headers: await getAuthHeaders(),
-  });
-
-  return response.data;
-};
-
-export const createEventAtPath = async (
-  path: string,
-  payload: CreateEventRequest,
-) => {
+const buildEventFormData = (payload: CreateEventRequest) => {
   const formData = new FormData();
   formData.append("title", payload.title.trim());
   formData.append("location", payload.location.trim());
   formData.append("eventDate", payload.eventDate);
+  formData.append("eventTime", payload.eventTime);
 
   if (payload.description?.trim()) {
     formData.append("description", payload.description.trim());
@@ -57,6 +48,30 @@ export const createEventAtPath = async (
 
   appendImage(formData, payload.imageUri);
 
+  return formData;
+};
+
+export const getEvents = async () => {
+  const response = await api().get<AutoEvent[]>("/events", {
+    headers: await getAuthHeaders(),
+  });
+
+  return response.data;
+};
+
+export const getEvent = async (eventId: number) => {
+  const response = await api().get<AutoEvent>(`/events/${eventId}`, {
+    headers: await getAuthHeaders(),
+  });
+
+  return response.data;
+};
+
+export const createEventAtPath = async (
+  path: string,
+  payload: CreateEventRequest,
+) => {
+  const formData = buildEventFormData(payload);
   const baseUrl = api().defaults.baseURL;
   const response = await fetch(`${baseUrl}${path}`, {
     method: "POST",
@@ -84,6 +99,33 @@ export const joinEvent = async (eventId: number) => {
 
 export const leaveEvent = async (eventId: number) => {
   const response = await api().delete<AutoEvent>(`/events/${eventId}/join`, {
+    headers: await getAuthHeaders(),
+  });
+
+  return response.data;
+};
+
+export const updateEvent = async (
+  eventId: number,
+  payload: CreateEventRequest,
+) => {
+  if (payload.imageUri) {
+    const formData = buildEventFormData(payload);
+    const baseUrl = api().defaults.baseURL;
+    const response = await fetch(`${baseUrl}/events/${eventId}`, {
+      method: "PUT",
+      body: formData,
+      headers: await getAuthHeaders(),
+    });
+
+    if (!response.ok) {
+      throw new Error(await response.text());
+    }
+
+    return response.json() as Promise<AutoEvent>;
+  }
+
+  const response = await api().put<AutoEvent>(`/events/${eventId}`, payload, {
     headers: await getAuthHeaders(),
   });
 

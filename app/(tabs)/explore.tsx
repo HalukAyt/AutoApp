@@ -1,8 +1,10 @@
+import { Ionicons } from "@expo/vector-icons";
 import { LoadingScreen } from "@/components/LoadingScreen";
+import { getClubs } from "@/services/clubService";
 import { getFeedPosts } from "@/services/postService";
 import { getExploreRoutes } from "@/services/routeService";
 import { getExploreVehicles } from "@/services/vehicleService";
-import type { FeedPost, UserRoute, Vehicle } from "@/types/domain";
+import type { Club, FeedPost, UserRoute, Vehicle } from "@/types/domain";
 import { getSecureImageUrl } from "@/utils/imageUrl";
 import { buildRouteMapParams } from "@/utils/routeMapParams";
 import { Image } from "expo-image";
@@ -20,14 +22,12 @@ import {
 } from "react-native";
 
 const carFallback = require("../../assets/images/6.jpg");
-const clubOne = require("../../assets/images/33.jpg");
-const clubTwo = require("../../assets/images/21.jpg");
-
 const TEXT = {
   clubs: "Kul\u00fcpler",
-  clubText: "T\u00fcm BMW seven s\u00fcr\u00fcc\u00fcleri bir araya getiren topluluk.",
   exploreError: "Ke\u015ffet verileri al\u0131namad\u0131.",
   garages: "Garajlar",
+  members: "\u00fcye",
+  noClub: "Kul\u00fcp bulunamad\u0131.",
   noGarage: "Garaj bulunamad\u0131.",
   noPost: "G\u00f6nderi bulunamad\u0131.",
   noRoute: "Rota bulunamad\u0131.",
@@ -35,7 +35,7 @@ const TEXT = {
   posts: "G\u00f6nderiler",
   routeDetailMissing: "Rota detay\u0131 yok",
   routes: "Rotalar",
-  searchPlaceholder: "Ara rotalar, ara\u00e7lar, g\u00f6nderiler",
+  searchPlaceholder: "Ara rotalar, ara\u00e7lar, g\u00f6nderiler, kul\u00fcpler",
   vehicles: "Ara\u00e7lar",
 };
 
@@ -44,6 +44,7 @@ export default function Explore() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [routes, setRoutes] = useState<UserRoute[]>([]);
   const [posts, setPosts] = useState<FeedPost[]>([]);
+  const [clubs, setClubs] = useState<Club[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
@@ -51,19 +52,22 @@ export default function Explore() {
   const fetchExploreData = useCallback(async () => {
     try {
       setErrorMessage("");
-      const [vehicleData, routeData, postData] = await Promise.all([
+      const [vehicleData, routeData, postData, clubData] = await Promise.all([
         getExploreVehicles(),
         getExploreRoutes(),
         getFeedPosts(),
+        getClubs(),
       ]);
 
       setVehicles(vehicleData);
       setRoutes(routeData);
       setPosts(postData);
+      setClubs(clubData);
       console.log("Explore data fetched:", {
         vehicles: vehicleData,
         routes: routeData,
         posts: postData,
+        clubs: clubData,
       });
     } catch (error) {
       console.error("Explore fetch error:", error);
@@ -124,6 +128,21 @@ export default function Explore() {
     [normalizedSearch, posts],
   );
 
+  const visibleClubs = useMemo(
+    () =>
+      clubs
+        .filter((club) =>
+          matchesSearch(
+            normalizedSearch,
+            club.name,
+            club.description,
+            club.managerName,
+          ),
+        )
+        .slice(0, 4),
+    [clubs, normalizedSearch],
+  );
+
   if (loading) {
     return <LoadingScreen backgroundColor="#202124" color="#c47a2d" />;
   }
@@ -145,6 +164,7 @@ export default function Explore() {
           <Text style={styles.filter}>{`${TEXT.vehicles} ${vehicles.length}`}</Text>
           <Text style={styles.filter}>{`${TEXT.routes} ${routes.length}`}</Text>
           <Text style={styles.filter}>{`${TEXT.posts} ${posts.length}`}</Text>
+          <Text style={styles.filter}>{`${TEXT.clubs} ${clubs.length}`}</Text>
         </View>
 
         {errorMessage ? (
@@ -188,7 +208,16 @@ export default function Explore() {
           {visiblePosts.length > 0 ? (
             <View style={styles.grid}>
               {visiblePosts.map((post) => (
-                <PostCard key={post.id} post={post} />
+                <PostCard
+                  key={post.id}
+                  post={post}
+                  onPress={() =>
+                    router.push({
+                      pathname: "/post-detail",
+                      params: { id: String(post.id) },
+                    })
+                  }
+                />
               ))}
             </View>
           ) : (
@@ -197,10 +226,24 @@ export default function Explore() {
         </ExploreSection>
 
         <ExploreSection title={TEXT.clubs}>
-          <View style={styles.grid}>
-            <ClubCard image={clubOne} title="BMW Addicts" />
-            <ClubCard image={clubTwo} title="Vintage Collectors" />
-          </View>
+          {visibleClubs.length > 0 ? (
+            <View style={styles.grid}>
+              {visibleClubs.map((club) => (
+                <ClubCard
+                  key={club.id}
+                  club={club}
+                  onPress={() =>
+                    router.push({
+                      pathname: "/club-detail",
+                      params: { id: String(club.id) },
+                    })
+                  }
+                />
+              ))}
+            </View>
+          ) : (
+            <EmptyText text={TEXT.noClub} />
+          )}
         </ExploreSection>
       </ScrollView>
     </SafeAreaView>
@@ -284,15 +327,15 @@ function RouteCard({
   );
 }
 
-function PostCard({ post }: { post: FeedPost }) {
+function PostCard({ onPress, post }: { onPress: () => void; post: FeedPost }) {
   const imageSource = post.postPhoto
     ? { uri: getSecureImageUrl(post.postPhoto) }
     : null;
 
   return (
-    <View style={styles.postCard}>
+    <Pressable style={styles.postCard} onPress={onPress}>
       <Text style={styles.user} numberOfLines={1}>
-        @{post.authorName}
+        @{post.authorUsername || post.authorName}
       </Text>
       {imageSource ? (
         <Image
@@ -312,19 +355,32 @@ function PostCard({ post }: { post: FeedPost }) {
           {post.content}
         </Text>
       ) : null}
-    </View>
+    </Pressable>
   );
 }
 
-function ClubCard({ image, title }: { image: number; title: string }) {
+function ClubCard({ club, onPress }: { club: Club; onPress: () => void }) {
+  const imageUrl = club.imageUrl ? getSecureImageUrl(club.imageUrl) : undefined;
+
   return (
-    <View style={styles.clubCard}>
-      <Image source={image} style={styles.clubImage} contentFit="cover" />
-      <Text style={styles.clubTitle}>{title}</Text>
-      <Text style={styles.clubText}>
-        {TEXT.clubText}
+    <Pressable style={styles.clubCard} onPress={onPress}>
+      {imageUrl ? (
+        <Image source={{ uri: imageUrl }} style={styles.clubImage} contentFit="cover" />
+      ) : (
+        <View style={styles.clubImagePlaceholder}>
+          <Ionicons name="people-outline" size={28} color="#c47a2d" />
+        </View>
+      )}
+      <Text style={styles.clubTitle} numberOfLines={1}>
+        {club.name}
       </Text>
-    </View>
+      <Text style={styles.clubText} numberOfLines={2}>
+        {club.description || `${club.memberCount} ${TEXT.members}`}
+      </Text>
+      <Text style={styles.clubMeta}>
+        {club.memberCount} {TEXT.members} - {club.managerName || "-"}
+      </Text>
+    </Pressable>
   );
 }
 
@@ -358,6 +414,20 @@ const styles = StyleSheet.create({
   clubImage: {
     height: 78,
     width: "100%",
+  },
+  clubImagePlaceholder: {
+    alignItems: "center",
+    backgroundColor: "#24272e",
+    height: 78,
+    justifyContent: "center",
+    width: "100%",
+  },
+  clubMeta: {
+    color: "#aeb1ba",
+    fontSize: 11,
+    fontWeight: "800",
+    marginTop: 8,
+    paddingHorizontal: 10,
   },
   clubText: {
     color: "#d1d1d5",

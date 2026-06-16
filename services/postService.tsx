@@ -25,6 +25,14 @@ export const getFeedPosts = async () => {
   return response.data;
 };
 
+export const getPost = async (postId: number) => {
+  const response = await api().get<FeedPost>(`/posts/${postId}`, {
+    headers: await getAuthHeaders(),
+  });
+
+  return response.data;
+};
+
 export const createPost = async ({ content, imageUri }: CreatePostRequest) => {
   const formData = new FormData();
 

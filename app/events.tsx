@@ -39,6 +39,7 @@ const TEXT = {
   description: "A\u00e7\u0131klama",
   empty: "Hen\u00fcz etkinlik yok.",
   eventDatePlaceholder: "Etkinlik tarihi se\u00e7",
+  eventTimePlaceholder: "Etkinlik saati se\u00e7",
   events: "Etkinlikler",
   imageAdd: "Foto\u011fraf Ekle",
   imageChange: "Foto\u011fraf\u0131 De\u011fi\u015ftir",
@@ -49,8 +50,9 @@ const TEXT = {
   myEvent: "Bireysel",
   permission: "Foto\u011fraf se\u00e7mek i\u00e7in galeri izni gerekli.",
   save: "Kaydet",
+  time: "Saat",
   title: "Ba\u015fl\u0131k",
-  validation: "Ba\u015fl\u0131k, konum ve tarih girin.",
+  validation: "Ba\u015fl\u0131k, konum, tarih ve saat girin.",
 };
 
 export default function EventsScreen() {
@@ -63,6 +65,7 @@ export default function EventsScreen() {
   const [description, setDescription] = useState("");
   const [location, setLocation] = useState("");
   const [eventDate, setEventDate] = useState("");
+  const [eventTime, setEventTime] = useState("");
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [updatingEventId, setUpdatingEventId] = useState<number | null>(null);
 
@@ -85,7 +88,7 @@ export default function EventsScreen() {
   );
 
   const upcomingEvents = useMemo(
-    () => [...events].sort((a, b) => a.eventDate.localeCompare(b.eventDate)),
+    () => [...events].sort((a, b) => getEventSortValue(a).localeCompare(getEventSortValue(b))),
     [events],
   );
 
@@ -94,6 +97,7 @@ export default function EventsScreen() {
     setDescription("");
     setLocation("");
     setEventDate("");
+    setEventTime("");
     setImageUri(null);
   };
 
@@ -105,7 +109,7 @@ export default function EventsScreen() {
   const pickEventImage = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
-      Alert.alert("Uyar\u0131", TEXT.permission);
+      Alert.alert("Uyarı", TEXT.permission);
       return;
     }
 
@@ -122,8 +126,13 @@ export default function EventsScreen() {
   };
 
   const handleCreateEvent = async () => {
-    if (!title.trim() || !location.trim() || !eventDate.trim()) {
-      Alert.alert("Uyar\u0131", TEXT.validation);
+    if (
+      !title.trim() ||
+      !location.trim() ||
+      !eventDate.trim() ||
+      !eventTime.trim()
+    ) {
+      Alert.alert("Uyarı", TEXT.validation);
       return;
     }
 
@@ -135,6 +144,7 @@ export default function EventsScreen() {
         description: description.trim(),
         location: location.trim(),
         eventDate,
+        eventTime,
       });
       closeModal();
       await fetchEvents();
@@ -215,6 +225,12 @@ export default function EventsScreen() {
               event={event}
               updating={updatingEventId === event.id}
               onDelete={() => handleDeleteEvent(event.id)}
+              onOpen={() =>
+                router.push({
+                  pathname: "/event-detail",
+                  params: { id: String(event.id) },
+                })
+              }
               onToggleJoin={() => handleToggleJoin(event)}
             />
           ))
@@ -255,6 +271,14 @@ export default function EventsScreen() {
                 value={eventDate}
                 onChange={setEventDate}
                 placeholder={TEXT.eventDatePlaceholder}
+              />
+              <DatePickerField
+                label={TEXT.time}
+                value={eventTime}
+                onChange={setEventTime}
+                mode="time"
+                placeholder={TEXT.eventTimePlaceholder}
+                iosDisplay="compact"
               />
 
               {imageUri ? (
@@ -298,18 +322,20 @@ export default function EventsScreen() {
 function EventCard({
   event,
   onDelete,
+  onOpen,
   onToggleJoin,
   updating,
 }: {
   event: AutoEvent;
   onDelete: () => void;
+  onOpen: () => void;
   onToggleJoin: () => void;
   updating: boolean;
 }) {
   const imageUrl = event.imageUrl ? getSecureImageUrl(event.imageUrl) : undefined;
 
   return (
-    <View style={styles.eventCard}>
+    <Pressable style={styles.eventCard} onPress={onOpen}>
       {imageUrl ? (
         <Image source={{ uri: imageUrl }} style={styles.eventImage} contentFit="cover" />
       ) : null}
@@ -317,7 +343,7 @@ function EventCard({
         <View style={styles.eventTitleBlock}>
           <Text style={styles.eventTitle}>{event.title}</Text>
           <Text style={styles.eventMeta}>
-            {formatDisplayDate(event.eventDate)} - {event.location}
+            {formatDisplayDateTime(event.eventDate, event.eventTime)} - {event.location}
           </Text>
         </View>
         <View style={styles.scopeBadge}>
@@ -356,8 +382,12 @@ function EventCard({
           </Pressable>
         </View>
       </View>
-    </View>
+    </Pressable>
   );
+}
+
+function getEventSortValue(event: AutoEvent) {
+  return `${event.eventDate}T${event.eventTime || "99:99"}`;
 }
 
 function formatDisplayDate(value: string) {
@@ -365,6 +395,20 @@ function formatDisplayDate(value: string) {
   if (!year || !month || !day) return value;
 
   return `${day}/${month}/${year}`;
+}
+
+function formatDisplayTime(value?: string | null) {
+  if (!value) return "";
+
+  const [hour, minute] = value.split(":");
+
+  return hour && minute ? `${hour.padStart(2, "0")}:${minute.padStart(2, "0")}` : value;
+}
+
+function formatDisplayDateTime(date: string, time?: string | null) {
+  const displayTime = formatDisplayTime(time);
+
+  return displayTime ? `${formatDisplayDate(date)} ${displayTime}` : formatDisplayDate(date);
 }
 
 const styles = StyleSheet.create({

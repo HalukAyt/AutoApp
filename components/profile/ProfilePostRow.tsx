@@ -10,6 +10,7 @@ interface ProfilePostRowProps {
   comments: string;
   onDelete?: () => void;
   onEdit?: () => void;
+  onPress?: () => void;
 }
 
 export function ProfilePostRow({
@@ -20,9 +21,10 @@ export function ProfilePostRow({
   comments,
   onDelete,
   onEdit,
+  onPress,
 }: ProfilePostRowProps) {
-  return (
-    <View style={styles.postRow}>
+  const content = (
+    <>
       <Image source={image} style={styles.postImage} />
       <View style={styles.postTextBox}>
         <Text style={styles.rowTitle}>{title}</Text>
@@ -30,14 +32,30 @@ export function ProfilePostRow({
       </View>
       <Text style={styles.metricText}>{likes} {"\u2661"}</Text>
       <Text style={styles.metricText}>{comments} {"\u25b1"}</Text>
-      <View style={styles.actionGroup}>
-        <Pressable style={styles.actionButton} onPress={onEdit}>
-          <Text style={styles.actionText}>{"D\u00fczenle"}</Text>
-        </Pressable>
-        <Pressable style={[styles.actionButton, styles.deleteButton]} onPress={onDelete}>
-          <Text style={styles.actionText}>{"Sil"}</Text>
-        </Pressable>
-      </View>
+      {onEdit || onDelete ? (
+        <View style={styles.actionGroup}>
+          {onEdit ? (
+            <Pressable style={styles.actionButton} onPress={onEdit}>
+              <Text style={styles.actionText}>{"D\u00fczenle"}</Text>
+            </Pressable>
+          ) : null}
+          {onDelete ? (
+            <Pressable style={[styles.actionButton, styles.deleteButton]} onPress={onDelete}>
+              <Text style={styles.actionText}>{"Sil"}</Text>
+            </Pressable>
+          ) : null}
+        </View>
+      ) : null}
+    </>
+  );
+
+  return onPress ? (
+    <Pressable style={styles.postRow} onPress={onPress}>
+      {content}
+    </Pressable>
+  ) : (
+    <View style={styles.postRow}>
+      {content}
     </View>
   );
 }

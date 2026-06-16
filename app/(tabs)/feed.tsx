@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { FeedPostCard } from "@/components/feed/FeedPostCard";
 import { LoadingScreen } from "@/components/LoadingScreen";
+import { UserAvatar } from "@/components/UserAvatar";
 import { getFeedPosts } from "@/services/postService";
 import { createStory, deleteStory, getStories } from "@/services/storyService";
 import type { FeedPost, Story } from "@/types/domain";
@@ -9,7 +10,7 @@ import { Audio } from "expo-av";
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
 import * as Location from "expo-location";
-import { useFocusEffect } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import type { ComponentProps } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -27,8 +28,6 @@ import {
   TextInput,
   View,
 } from "react-native";
-
-const defaultAvatar = require("../../assets/images/3.jpg");
 
 type IconName = ComponentProps<typeof Ionicons>["name"];
 type StoryTool = "text" | "music" | "location" | "time";
@@ -243,6 +242,7 @@ const formatAddress = (address: Location.LocationGeocodedAddress) => {
 };
 
 export default function Feed() {
+  const router = useRouter();
   const [posts, setPosts] = useState<FeedPost[]>([]);
   const [stories, setStories] = useState<Story[]>([]);
   const [selectedStoryIndex, setSelectedStoryIndex] = useState<number | null>(null);
@@ -581,6 +581,18 @@ export default function Feed() {
     }
   };
 
+  const openUserProfile = (username?: string | null) => {
+    const cleanUsername = username?.replace(/^@/, "").trim();
+
+    if (!cleanUsername) return;
+
+    closeStoryViewer();
+    router.push({
+      pathname: "/user-profile",
+      params: { username: cleanUsername },
+    });
+  };
+
   if (loading) {
     return <LoadingScreen backgroundColor="#202124" color="#c47a2d" />;
   }
@@ -591,7 +603,16 @@ export default function Feed() {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.logo}>AutoTrack</Text>
+        <View style={styles.topBar}>
+          <View style={styles.dmButtonSpacer} />
+          <Text style={styles.logo}>AutoTrack</Text>
+          <Pressable
+            style={styles.dmButton}
+            onPress={() => router.push("/direct-inbox")}
+          >
+            <Ionicons name="paper-plane-outline" size={21} color="#f4f4f6" />
+          </Pressable>
+        </View>
 
         <ScrollView
           horizontal
@@ -638,7 +659,6 @@ export default function Feed() {
             <FeedPostCard
               key={post.id}
               post={post}
-              defaultAvatar={defaultAvatar}
             />
           ))
         ) : (
@@ -676,7 +696,7 @@ export default function Feed() {
                 >
                   <Ionicons name="close" size={22} color="#ffffff" />
                 </Pressable>
-                <Text style={styles.composerHeaderTitle}>Story</Text>
+                <Text style={styles.composerHeaderTitle}>Hikaye</Text>
                 <Pressable
                   onPress={handleShareStory}
                   style={[styles.publishPill, uploadingStory && styles.disabledButton]}
@@ -685,7 +705,7 @@ export default function Feed() {
                   {uploadingStory ? (
                     <ActivityIndicator size="small" color="#ffffff" />
                   ) : (
-                    <Text style={styles.publishPillText}>Payla\u015f</Text>
+                    <Text style={styles.publishPillText}>Paylaş</Text>
                   )}
                 </Pressable>
               </View>
@@ -952,23 +972,27 @@ export default function Feed() {
               </View>
 
               <View style={styles.viewerHeader}>
-                <Image
-                  source={
-                    selectedStory.authorProfilePhoto
-                      ? { uri: getSecureImageUrl(selectedStory.authorProfilePhoto) }
-                      : defaultAvatar
-                  }
-                  style={styles.viewerAvatar}
-                  contentFit="cover"
-                />
-                <View style={styles.viewerAuthorBlock}>
-                  <Text style={styles.viewerAuthorName} numberOfLines={1}>
-                    {getStoryName(selectedStory)}
-                  </Text>
-                  <Text style={styles.viewerTime}>
-                    {formatStoryTime(selectedStory.createdAt)}
-                  </Text>
-                </View>
+                <Pressable
+                  style={styles.viewerAuthorPressable}
+                  onPress={() => openUserProfile(selectedStory.authorUsername)}
+                >
+                  <UserAvatar
+                    imageUrl={selectedStory.authorProfilePhoto}
+                    name={selectedStory.authorName}
+                    username={selectedStory.authorUsername}
+                    size={36}
+                    borderRadius={18}
+                    style={styles.viewerAvatar}
+                  />
+                  <View style={styles.viewerAuthorBlock}>
+                    <Text style={styles.viewerAuthorName} numberOfLines={1}>
+                      {getStoryName(selectedStory)}
+                    </Text>
+                    <Text style={styles.viewerTime}>
+                      {formatStoryTime(selectedStory.createdAt)}
+                    </Text>
+                  </View>
+                </Pressable>
                 <Pressable onPress={closeStoryViewer} style={styles.viewerCloseButton}>
                   <Ionicons name="close" size={24} color="#ffffff" />
                 </Pressable>
@@ -1197,6 +1221,17 @@ const styles = StyleSheet.create({
   disabledButton: {
     opacity: 0.75,
   },
+  dmButton: {
+    alignItems: "center",
+    backgroundColor: "#24272e",
+    borderRadius: 8,
+    height: 40,
+    justifyContent: "center",
+    width: 40,
+  },
+  dmButtonSpacer: {
+    width: 40,
+  },
   emptyText: {
     color: "#a9a9ae",
     marginTop: 40,
@@ -1274,7 +1309,6 @@ const styles = StyleSheet.create({
     color: "#c47a2d",
     fontSize: 20,
     fontWeight: "800",
-    marginBottom: 10,
     textAlign: "center",
   },
   publishPill: {
@@ -1410,10 +1444,22 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     width: 46,
   },
+  topBar: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 10,
+  },
   viewerAuthorBlock: {
     flex: 1,
     marginLeft: 10,
     marginRight: 12,
+  },
+  viewerAuthorPressable: {
+    alignItems: "center",
+    flex: 1,
+    flexDirection: "row",
+    minWidth: 0,
   },
   viewerAuthorName: {
     color: "#ffffff",

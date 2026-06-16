@@ -50,6 +50,7 @@ const TEXT = {
   create: "Olu\u015ftur",
   createEvent: "Etkinlik Olu\u015ftur",
   createRoute: "Rota Olu\u015ftur",
+  clubDetail: "Kul\u00fcp Detay\u0131",
   date: "Tarih",
   description: "A\u00e7\u0131klama",
   distance: "Mesafe (km)",
@@ -59,6 +60,7 @@ const TEXT = {
   emptyRoutes: "Bu kul\u00fcbe ait rota yok.",
   endPoint: "Biti\u015f noktas\u0131",
   eventDatePlaceholder: "Etkinlik tarihi se\u00e7",
+  eventTimePlaceholder: "Etkinlik saati se\u00e7",
   events: "Etkinlikler",
   imageAdd: "Foto\u011fraf Ekle",
   imageChange: "Foto\u011fraf\u0131 De\u011fi\u015ftir",
@@ -82,9 +84,10 @@ const TEXT = {
   selectEnd: "Biti\u015f Se\u00e7",
   selectStart: "Ba\u015flang\u0131\u00e7 Se\u00e7",
   startPoint: "Ba\u015flang\u0131\u00e7 noktas\u0131",
+  time: "Saat",
   title: "Ba\u015fl\u0131k",
   validationClub: "Kul\u00fcp ad\u0131 girin.",
-  validationEvent: "Ba\u015fl\u0131k, konum ve tarih girin.",
+  validationEvent: "Ba\u015fl\u0131k, konum, tarih ve saat girin.",
   validationRoute: "Rota ad\u0131, ba\u015flang\u0131\u00e7 ve biti\u015f girin.",
 };
 
@@ -113,10 +116,12 @@ export default function Clubs() {
   const [updatingId, setUpdatingId] = useState<number | null>(null);
   const [clubName, setClubName] = useState("");
   const [clubDescription, setClubDescription] = useState("");
+  const [clubImageUri, setClubImageUri] = useState<string | null>(null);
   const [eventTitle, setEventTitle] = useState("");
   const [eventDescription, setEventDescription] = useState("");
   const [eventLocation, setEventLocation] = useState("");
   const [eventDate, setEventDate] = useState("");
+  const [eventTime, setEventTime] = useState("");
   const [eventImageUri, setEventImageUri] = useState<string | null>(null);
   const [routeTitle, setRouteTitle] = useState("");
   const [routeStartPoint, setRouteStartPoint] = useState("");
@@ -171,10 +176,12 @@ export default function Clubs() {
     setSelectedClub(null);
     setClubName("");
     setClubDescription("");
+    setClubImageUri(null);
     setEventTitle("");
     setEventDescription("");
     setEventLocation("");
     setEventDate("");
+    setEventTime("");
     setEventImageUri(null);
     setRouteTitle("");
     setRouteStartPoint("");
@@ -234,6 +241,7 @@ export default function Clubs() {
       const created = await createClub({
         name: clubName.trim(),
         description: clubDescription.trim(),
+        imageUri: clubImageUri,
       });
       setClubs((current) => [created, ...current]);
       closeModal();
@@ -261,6 +269,25 @@ export default function Clubs() {
     }
   };
 
+  const pickClubImage = async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert("Uyar\u0131", TEXT.permission);
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      allowsEditing: true,
+      aspect: [16, 9],
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.85,
+    });
+
+    if (!result.canceled && result.assets[0]?.uri) {
+      setClubImageUri(result.assets[0].uri);
+    }
+  };
+
   const pickEventImage = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
@@ -280,7 +307,13 @@ export default function Clubs() {
     }
   };
   const handleCreateClubEvent = async () => {
-    if (!selectedClub || !eventTitle.trim() || !eventLocation.trim() || !eventDate.trim()) {
+    if (
+      !selectedClub ||
+      !eventTitle.trim() ||
+      !eventLocation.trim() ||
+      !eventDate.trim() ||
+      !eventTime.trim()
+    ) {
       Alert.alert("Uyar\u0131", TEXT.validationEvent);
       return;
     }
@@ -292,6 +325,7 @@ export default function Clubs() {
         description: eventDescription.trim(),
         location: eventLocation.trim(),
         eventDate,
+        eventTime,
       });
       setClubEvents((current) => ({
         ...current,
@@ -459,6 +493,18 @@ export default function Clubs() {
               eventUpdatingId={updatingId}
               onCreateEvent={() => openModal("event", club)}
               onCreateRoute={() => openModal("route", club)}
+              onOpen={() =>
+                router.push({
+                  pathname: "/club-detail",
+                  params: { id: String(club.id) },
+                })
+              }
+              onOpenEvent={(event) =>
+                router.push({
+                  pathname: "/event-detail",
+                  params: { id: String(event.id) },
+                })
+              }
               onToggleExpand={() => toggleExpandClub(club)}
               onToggleMembership={() => handleToggleMembership(club)}
               onToggleEventJoin={(event) => handleToggleEventJoin(club.id, event)}
@@ -493,6 +539,15 @@ export default function Clubs() {
                   value={clubDescription}
                   onChangeText={setClubDescription}
                 />
+                {clubImageUri ? (
+                  <Image source={{ uri: clubImageUri }} style={styles.imagePreview} contentFit="cover" />
+                ) : null}
+                <Pressable style={styles.imagePickerButton} onPress={pickClubImage}>
+                  <Ionicons name="image-outline" size={17} color="#c47a2d" />
+                  <Text style={styles.imagePickerText}>
+                    {clubImageUri ? TEXT.imageChange : TEXT.imageAdd}
+                  </Text>
+                </Pressable>
               </>
             ) : null}
 
@@ -502,7 +557,20 @@ export default function Clubs() {
                 <TextInput style={styles.input} placeholder={TEXT.title} placeholderTextColor="#8f929b" value={eventTitle} onChangeText={setEventTitle} />
                 <TextInput style={styles.input} placeholder={TEXT.location} placeholderTextColor="#8f929b" value={eventLocation} onChangeText={setEventLocation} />
                 <TextInput multiline style={[styles.input, styles.textarea]} placeholder={TEXT.description} placeholderTextColor="#8f929b" value={eventDescription} onChangeText={setEventDescription} />
-                <DatePickerField label={TEXT.date} value={eventDate} onChange={setEventDate} placeholder={TEXT.eventDatePlaceholder} />
+                <DatePickerField
+                  label={TEXT.date}
+                  value={eventDate}
+                  onChange={setEventDate}
+                  placeholder={TEXT.eventDatePlaceholder}
+                />
+                <DatePickerField
+                  label={TEXT.time}
+                  value={eventTime}
+                  onChange={setEventTime}
+                  mode="time"
+                  placeholder={TEXT.eventTimePlaceholder}
+                  iosDisplay="compact"
+                />
                 {eventImageUri ? (
                   <Image source={{ uri: eventImageUri }} style={styles.imagePreview} contentFit="cover" />
                 ) : null}
@@ -597,6 +665,8 @@ function ClubCard({
   loadingContent,
   onCreateEvent,
   onCreateRoute,
+  onOpen,
+  onOpenEvent,
   onOpenRoute,
   onToggleEventJoin,
   onToggleExpand,
@@ -611,6 +681,8 @@ function ClubCard({
   loadingContent: boolean;
   onCreateEvent: () => void;
   onCreateRoute: () => void;
+  onOpen: () => void;
+  onOpenEvent: (event: AutoEvent) => void;
   onOpenRoute: (route: UserRoute) => void;
   onToggleEventJoin: (event: AutoEvent) => void;
   onToggleExpand: () => void;
@@ -619,18 +691,24 @@ function ClubCard({
   updating: boolean;
 }) {
   const canSeeContent = club.member || club.manager;
+  const imageUrl = club.imageUrl ? getSecureImageUrl(club.imageUrl) : undefined;
 
   return (
     <View style={styles.card}>
-      <View style={styles.cardHeader}>
-        <View style={styles.cardTitleBlock}>
-          <Text style={styles.cardTitle}>{club.name}</Text>
-          <Text style={styles.cardMeta}>{`${club.memberCount} ${TEXT.members} - ${club.managerName}`}</Text>
+      <Pressable style={styles.cardIntro} onPress={onOpen}>
+        {imageUrl ? (
+          <Image source={{ uri: imageUrl }} style={styles.clubCoverImage} contentFit="cover" />
+        ) : null}
+        <View style={styles.cardHeader}>
+          <View style={styles.cardTitleBlock}>
+            <Text style={styles.cardTitle}>{club.name}</Text>
+            <Text style={styles.cardMeta}>{`${club.memberCount} ${TEXT.members} - ${club.managerName}`}</Text>
+          </View>
+          {club.manager ? <Text style={styles.managerBadge}>{TEXT.manager}</Text> : null}
         </View>
-        {club.manager ? <Text style={styles.managerBadge}>{TEXT.manager}</Text> : null}
-      </View>
 
-      {club.description ? <Text style={styles.cardText}>{club.description}</Text> : null}
+        {club.description ? <Text style={styles.cardText}>{club.description}</Text> : null}
+      </Pressable>
 
       <View style={styles.cardActions}>
         <Pressable style={styles.secondaryButton} onPress={onToggleExpand} disabled={!canSeeContent}>
@@ -653,6 +731,10 @@ function ClubCard({
         <View style={styles.clubContent}>
           {club.manager ? (
             <View style={styles.managerActions}>
+              <Pressable style={styles.managerAction} onPress={onOpen}>
+                <Ionicons name="settings-outline" size={16} color="#c47a2d" />
+                <Text style={styles.managerActionText}>{TEXT.clubDetail}</Text>
+              </Pressable>
               <Pressable style={styles.managerAction} onPress={onCreateEvent}>
                 <Ionicons name="calendar-outline" size={16} color="#c47a2d" />
                 <Text style={styles.managerActionText}>{TEXT.createEvent}</Text>
@@ -675,6 +757,7 @@ function ClubCard({
                     key={event.id}
                     event={event}
                     updating={eventUpdatingId === event.id}
+                    onOpen={() => onOpenEvent(event)}
                     onToggleJoin={() => onToggleEventJoin(event)}
                   />
                 ))
@@ -730,11 +813,21 @@ function RoutePointButton({
   );
 }
 
-function EventRow({ event, onToggleJoin, updating }: { event: AutoEvent; onToggleJoin: () => void; updating: boolean }) {
+function EventRow({
+  event,
+  onOpen,
+  onToggleJoin,
+  updating,
+}: {
+  event: AutoEvent;
+  onOpen: () => void;
+  onToggleJoin: () => void;
+  updating: boolean;
+}) {
   const imageUrl = event.imageUrl ? getSecureImageUrl(event.imageUrl) : undefined;
 
   return (
-    <View style={styles.eventRow}>
+    <Pressable style={styles.eventRow} onPress={onOpen}>
       {imageUrl ? (
         <Image source={{ uri: imageUrl }} style={styles.eventThumbnail} contentFit="cover" />
       ) : (
@@ -744,12 +837,14 @@ function EventRow({ event, onToggleJoin, updating }: { event: AutoEvent; onToggl
       )}
       <View style={styles.rowTextBlock}>
         <Text style={styles.rowTitle}>{event.title}</Text>
-        <Text style={styles.rowMeta}>{`${formatDisplayDate(event.eventDate)} - ${event.location} - ${event.attendeeCount} ${TEXT.attendee}`}</Text>
+        <Text style={styles.rowMeta}>
+          {`${formatDisplayDateTime(event.eventDate, event.eventTime)} - ${event.location} - ${event.attendeeCount} ${TEXT.attendee}`}
+        </Text>
       </View>
       <Pressable style={styles.smallJoinButton} onPress={onToggleJoin} disabled={updating}>
         {updating ? <ActivityIndicator color="#111213" /> : <Text style={styles.smallJoinText}>{event.joinedByMe ? TEXT.leave : TEXT.join}</Text>}
       </Pressable>
-    </View>
+    </Pressable>
   );
 }
 
@@ -803,6 +898,20 @@ function formatDisplayDate(value: string) {
   return `${day}/${month}/${year}`;
 }
 
+function formatDisplayTime(value?: string | null) {
+  if (!value) return "";
+
+  const [hour, minute] = value.split(":");
+
+  return hour && minute ? `${hour.padStart(2, "0")}:${minute.padStart(2, "0")}` : value;
+}
+
+function formatDisplayDateTime(date: string, time?: string | null) {
+  const displayTime = formatDisplayTime(time);
+
+  return displayTime ? `${formatDisplayDate(date)} ${displayTime}` : formatDisplayDate(date);
+}
+
 const styles = StyleSheet.create({
   cancelButton: { backgroundColor: "#363941" },
   card: {
@@ -815,11 +924,13 @@ const styles = StyleSheet.create({
   },
   cardActions: { flexDirection: "row", gap: 10, marginTop: 14 },
   cardHeader: { alignItems: "flex-start", flexDirection: "row", gap: 10 },
+  cardIntro: { borderRadius: 8 },
   cardMeta: { color: "#9da0a8", fontSize: 12, fontWeight: "800", marginTop: 4 },
   cardText: { color: "#cfd0d3", fontSize: 13, fontWeight: "700", lineHeight: 20, marginTop: 10 },
   cardTitle: { color: "#f4f4f6", fontSize: 18, fontWeight: "900" },
   cardTitleBlock: { flex: 1 },
   clubContent: { borderTopColor: "#30333b", borderTopWidth: 1, marginTop: 14, paddingTop: 12 },
+  clubCoverImage: { borderRadius: 8, height: 126, marginBottom: 12, width: "100%" },
   content: { padding: 20, paddingBottom: 36 },
   contentTitle: { color: "#f4f4f6", fontSize: 14, fontWeight: "900", marginBottom: 8, marginTop: 12 },
   emptyText: { color: "#aeb1ba", marginTop: 24, textAlign: "center" },
