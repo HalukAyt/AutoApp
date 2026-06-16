@@ -5,6 +5,7 @@ interface ProfileRouteRowProps {
   detail: string;
   duration: number;
   distance: number;
+  routeDate?: string | null;
   onDelete?: () => void;
   onEdit?: () => void;
   onPress?: () => void;
@@ -15,6 +16,7 @@ export function ProfileRouteRow({
   detail,
   duration,
   distance,
+  routeDate,
   onDelete,
   onEdit,
   onPress,
@@ -26,6 +28,9 @@ export function ProfileRouteRow({
         <Text style={styles.metricText}>
           {duration} saat {"\u00b7"} {distance} km
         </Text>
+        {routeDate ? (
+          <Text style={styles.dateText}>{formatDisplayDate(routeDate)}</Text>
+        ) : null}
         <Text style={styles.rowDetail}>{detail}</Text>
       </Pressable>
       <View style={styles.actionGroup}>
@@ -38,6 +43,13 @@ export function ProfileRouteRow({
       </View>
     </View>
   );
+}
+
+function formatDisplayDate(value: string) {
+  const [year, month, day] = value.slice(0, 10).split("-");
+  if (!year || !month || !day) return value;
+
+  return `${day}/${month}/${year}`;
 }
 
 const styles = StyleSheet.create({
@@ -60,6 +72,13 @@ const styles = StyleSheet.create({
   },
   deleteButton: {
     backgroundColor: "#8d3838",
+  },
+  dateText: {
+    color: "#a8732b",
+    fontSize: 11,
+    fontWeight: "900",
+    marginBottom: 3,
+    marginLeft: 12,
   },
   metricText: {
     color: "#d1d1d5",

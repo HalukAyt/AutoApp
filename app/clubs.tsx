@@ -74,6 +74,8 @@ const TEXT = {
   pointNotSelected: "Nokta se\u00e7ilmedi",
   pointSelected: "Noktay\u0131 Se\u00e7",
   routeTitle: "Rota ad\u0131",
+  routeDate: "Rota Tarihi",
+  routeDatePlaceholder: "Rota tarihi se\u00e7",
   routes: "Rotalar",
   save: "Kaydet",
   search: "Kul\u00fcp ara...",
@@ -128,6 +130,7 @@ export default function Clubs() {
   const [isRoutePickerVisible, setRoutePickerVisible] = useState(false);
   const [routeDistance, setRouteDistance] = useState("");
   const [routeDuration, setRouteDuration] = useState("");
+  const [routeDate, setRouteDate] = useState("");
 
   const fetchClubs = useCallback(async () => {
     try {
@@ -184,6 +187,7 @@ export default function Clubs() {
     setRoutePickerVisible(false);
     setRouteDistance("");
     setRouteDuration("");
+    setRouteDate("");
   };
 
   const loadClubContent = async (club: Club) => {
@@ -385,6 +389,7 @@ export default function Clubs() {
         endLongitude: routeEndCoordinate.longitude,
         distance,
         duration,
+        routeDate: routeDate.trim() || undefined,
       });
       setClubRoutes((current) => ({
         ...current,
@@ -516,6 +521,7 @@ export default function Clubs() {
                 <RoutePointButton label={TEXT.endPoint} value={routeEndPoint} onPress={() => openRoutePicker("end")} />
                 <TextInput style={styles.input} keyboardType="decimal-pad" placeholder={TEXT.distance} placeholderTextColor="#8f929b" value={routeDistance} onChangeText={setRouteDistance} />
                 <TextInput style={styles.input} keyboardType="numeric" placeholder={TEXT.duration} placeholderTextColor="#8f929b" value={routeDuration} onChangeText={setRouteDuration} />
+                <DatePickerField label={TEXT.routeDate} value={routeDate} onChange={setRouteDate} optional placeholder={TEXT.routeDatePlaceholder} iosDisplay="compact" />
               </>
             ) : null}
 
@@ -685,7 +691,11 @@ function ClubCard({
                     </View>
                     <View style={styles.rowTextBlock}>
                       <Text style={styles.rowTitle}>{route.title}</Text>
-                      <Text style={styles.rowMeta}>{route.detail}</Text>
+                      <Text style={styles.rowMeta}>
+                        {route.routeDate
+                          ? `${formatDisplayDate(route.routeDate)} - ${route.detail}`
+                          : route.detail}
+                      </Text>
                     </View>
                     <Ionicons name="chevron-forward" size={18} color="#8f929b" />
                   </Pressable>

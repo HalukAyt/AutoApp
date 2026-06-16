@@ -13,6 +13,7 @@ export interface CreateRouteRequest {
   endLongitude: number;
   distance: number;
   duration: number;
+  routeDate?: string;
   clubId?: number;
 }
 

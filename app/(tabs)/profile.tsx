@@ -1,4 +1,5 @@
 import { LoadingScreen } from "@/components/LoadingScreen";
+import { DatePickerField } from "@/components/forms/DatePickerField";
 import { GarageVehicleCard } from "@/components/profile/GarageVehicleCard";
 import { ProfilePostRow } from "@/components/profile/ProfilePostRow";
 import { ProfileRouteRow } from "@/components/profile/ProfileRouteRow";
@@ -93,6 +94,7 @@ export default function Profile() {
   const [isRoutePickerVisible, setRoutePickerVisible] = useState(false);
   const [routeDistance, setRouteDistance] = useState("");
   const [routeDuration, setRouteDuration] = useState("");
+  const [routeDate, setRouteDate] = useState("");
   const [isCreatingRoute, setIsCreatingRoute] = useState(false);
 
   const fetchProfileData = async (showLoader = false) => {
@@ -341,6 +343,7 @@ export default function Profile() {
     setRoutePickerLabel("");
     setRouteDistance("");
     setRouteDuration("");
+    setRouteDate("");
   };
 
   const openCreateRouteModal = () => {
@@ -377,6 +380,7 @@ export default function Profile() {
     );
     setRouteDistance(String(route.distance));
     setRouteDuration(String(route.duration));
+    setRouteDate(route.routeDate || "");
     setRoutePickerCoordinate(null);
     setRoutePickerLabel("");
     setRouteModalVisible(true);
@@ -477,6 +481,7 @@ export default function Profile() {
         endLongitude: routeEndCoordinate.longitude,
         distance: parsedDistance,
         duration: parsedDuration,
+        routeDate: routeDate.trim() || undefined,
       };
 
       const isEditingRoute = editingRouteId !== null;
@@ -741,6 +746,7 @@ export default function Profile() {
                 detail={route.detail}
                 duration={route.duration}
                 distance={route.distance}
+                routeDate={route.routeDate}
                 onPress={() =>
                   router.push({
                     pathname: "/route-map",
@@ -867,6 +873,14 @@ export default function Profile() {
               placeholderTextColor="#999"
               value={routeDuration}
               onChangeText={setRouteDuration}
+            />
+            <DatePickerField
+              label="Rota Tarihi"
+              value={routeDate}
+              onChange={setRouteDate}
+              optional
+              placeholder="Rota tarihi se\u00e7"
+              iosDisplay="compact"
             />
 
             <View style={styles.modalActions}>
